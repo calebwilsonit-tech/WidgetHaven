@@ -8,8 +8,14 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const svg = (id, cls = '') => `<svg class="ico ${cls}"><use href="#i-${id}"/></svg>`;
 
 // A window opened with ?widget=<id> is a split-off desktop widget showing a single tab.
-const WID = new URLSearchParams(location.search).get('widget');
-const IS_WIDGET = !!WID;
+const QS = new URLSearchParams(location.search);
+// ?panel=<kind> is a dialog window opened from a widget (so dialogs aren't clipped by the widget's edges).
+const PANEL = QS.get('panel');
+const IS_PANEL = !!PANEL;
+const WID = QS.get('widget') || '';
+const IS_WIDGET = !!WID && !IS_PANEL;
+// Inside a widget, dialogs open in the panel window instead. Returns true when it handed off.
+const toPanel = (kind, arg) => { if (!IS_WIDGET || !window.haven) return false; api.openPanel(kind, arg == null ? '' : String(arg)); return true; };
 
 const S = {
   items: [], byId: new Map(), favorites: [], groups: [], settings: {}, notes: '',
@@ -46,9 +52,9 @@ function ingest(snap) {
   if (snap.pinAvailable !== undefined) S.pinAvailable = snap.pinAvailable;
   if (snap.version) { S.version = snap.version; S.packaged = snap.packaged; }
   S.widgets = snap.widgets || [];
-  if (IS_WIDGET) {
+  if (WID) {
     S.wrec = S.widgets.find((w) => w.id === WID) || S.wrec;
-    if (S.wrec) S.view = S.wrec.view;
+    if (S.wrec && IS_WIDGET) S.view = S.wrec.view;
   }
   S.onboarded = snap.onboarded !== false;
   applyTheme();
@@ -495,7 +501,22 @@ async function addPaths(paths, extra = {}) {
 }
 
 // ================================================================ context menu
+// Native Windows menu (used in widgets so menus can extend past the widget's edges).
+function nativeMenu(entries) {
+  const acts = new Map();
+  let n = 0;
+  const conv = (list) => list.filter((e) => e).map((e) => {
+    if (e === '-') return { sep: true };
+    if (e.header) return { header: e.header };
+    const id = 'm' + n++;
+    if (!e.sub) acts.set(id, e.action);
+    return { id, label: e.label, checked: e.icon === '✓', sub: e.sub ? conv(e.sub) : undefined };
+  });
+  api.popupMenu(conv(entries)).then((id) => { const fn = acts.get(id); if (fn) fn(); });
+  return null;
+}
 function openMenu(entries, x, y, parent) {
+  if (!parent && IS_WIDGET && window.haven && api.popupMenu) return nativeMenu(entries);
   const m = parent ? document.createElement('div') : $('#menu');
   if (parent) { m.className = 'menu sub'; parent.appendChild(m); }
   m.hidden = false;
@@ -588,7 +609,12 @@ function modal(html, { wide = false } = {}) {
   setTimeout(() => m.querySelector('input:not([type=color]):not([type=range]), [data-autofocus]')?.focus(), 30);
   return m;
 }
-function closeModal() { $('#modalBack').hidden = true; $('#modal').innerHTML = ''; }
+function closeModal() {
+  $('#modalBack').hidden = true;
+  $('#modal').innerHTML = '';
+  // In a panel window, closing the last dialog closes the window (unless another dialog opens right after).
+  if (IS_PANEL) setTimeout(() => { if ($('#modalBack').hidden) api.closePanel(); }, 80);
+}
 function prompt({ title, lead = '', fields, ok = 'Save' }) {
   return new Promise((resolve) => {
     const m = modal(`<h3>${esc(title)}</h3>${lead ? `<p class="lead">${lead}</p>` : ''}
@@ -599,16 +625,19 @@ function prompt({ title, lead = '', fields, ok = 'Save' }) {
   });
 }
 async function renameItem(id) {
+  if (toPanel('rename', id)) return;
   const it = S.byId.get(id);
   const r = await prompt({ title: 'Rename', lead: it.originalName !== it.name ? `Original name: ${esc(it.originalName)}` : '', fields: [{ name: 'name', label: 'Name', value: it.name }] });
   if (r) setMeta(id, { customName: r.name.trim() && r.name.trim() !== it.originalName ? r.name.trim() : null });
 }
 async function editArgs(id) {
+  if (toPanel('args', id)) return;
   const it = S.byId.get(id);
   const r = await prompt({ title: 'Launch options', lead: 'Command-line arguments passed when Haven opens this app.', fields: [{ name: 'args', label: 'Arguments', value: it.args || '', placeholder: 'e.g. --incognito' }] });
   if (r) setMeta(id, { args: r.args.trim() || null });
 }
 async function addLinkFlow() {
+  if (toPanel('link', S.view)) return;
   const r = await prompt({ title: 'Add a link', lead: 'Websites, web apps, or any URL (steam://, spotify:, discord:…).', ok: 'Add link', fields: [{ name: 'url', label: 'URL', placeholder: 'youtube.com' }, { name: 'name', label: 'Name (optional)', placeholder: 'YouTube' }] });
   if (!r || !r.url.trim()) return;
   const opts = { url: r.url.trim(), name: r.name.trim() };
@@ -618,6 +647,7 @@ async function addLinkFlow() {
   toast('Link added');
 }
 function editGroup(gid, addItemId) {
+  if (toPanel('group', `${gid || ''}|${addItemId || ''}`)) return;
   const g = gid ? S.groups.find((x) => x.id === gid) : { id: 'g' + Date.now().toString(36), name: '', emoji: '📁', color: GROUP_COLORS[S.groups.length % GROUP_COLORS.length], items: [] };
   let emoji = g.emoji, color = g.color;
   const m = modal(`<h3>${gid ? 'Edit group' : 'New group'}</h3><p class="lead">Groups are like desktop fences — collect anything you like.</p>
@@ -670,6 +700,7 @@ function welcome() {
 // ---------------------------------------------------------------- settings
 let settingsTab = 'general';
 function openSettings(tab) {
+  if (toPanel('settings', tab || '')) return;
   if (tab) settingsTab = tab;
   const s = S.settings;
   const sw = (k, on) => `<button class="switch ${on ? 'on' : ''}" data-toggle="${k}"></button>`;
@@ -904,7 +935,8 @@ function lookCard(l, active, custom) {
 
 // One place to restyle: preset looks, scale, opacity, tile size, blur, text backing.
 function customizePanel(scope) {
-  const forWidget = IS_WIDGET && S.wrec;
+  if (toPanel('customize', scope || '')) return;
+  const forWidget = !!WID && S.wrec;
   scope = scope || (forWidget ? 'this' : 'all');
   const s = S.settings;
   const src = scope === 'this' && forWidget ? S.wrec : s;
@@ -978,7 +1010,12 @@ function customizePanel(scope) {
   };
   const live = (id, label, fn, saveFn) => {
     const el = $(id, m);
-    el.addEventListener('input', () => { $(id + 'V', m).textContent = el.value + label; fn(+el.value); });
+    let t = 0;
+    el.addEventListener('input', () => {
+      $(id + 'V', m).textContent = el.value + label;
+      // In the panel window the widget is a different window: preview by saving (throttled).
+      if (IS_PANEL) { clearTimeout(t); t = setTimeout(() => saveFn(+el.value), 90); } else fn(+el.value);
+    });
     el.addEventListener('change', () => saveFn(+el.value));
   };
   live('#cScale', '%', (v) => api.setZoom && api.setZoom(v / 100), (v) => save({ scale: v }));
@@ -998,6 +1035,7 @@ const transparencyPanel = () => customizePanel();
 
 // ---------------------------------------------------------------- layouts
 async function layoutsPanel() {
+  if (toPanel('layouts')) return;
   const presets = await api.layoutPresets();
   const custom = S.settings.customLayouts || [];
   const mini = (l) => `<svg viewBox="0 0 100 62" class="lay-svg"><rect x="0" y="0" width="100" height="62" rx="4" class="lay-desk"/>${l.widgets.map((w) => {
@@ -1198,7 +1236,8 @@ function applyTheme() {
   const plates = pick('plates', 'subtle');
   document.body.dataset.plates = plates;
   document.body.dataset.border = pick('border', 'hover');
-  if (api.setZoom) api.setZoom(pick('scale', 100) / 100);
+  if (api.setZoom && !IS_PANEL) api.setZoom(pick('scale', 100) / 100);
+  document.body.classList.toggle('is-panel', IS_PANEL);
   document.body.classList.toggle('widget', IS_WIDGET || s.mode === 'widget');
   document.body.classList.toggle('is-widget', IS_WIDGET);
   document.body.classList.toggle('locked', (IS_WIDGET || s.mode === 'widget') && !!s.lockPosition);
@@ -1509,10 +1548,29 @@ async function doAct(act, el) {
   else if (act === 'rescan') { toast('Rescanning your PC…'); ingest(await api.rescan()); render(); toast(`Library updated · ${S.items.filter((i) => !i.transient).length} items`); }
 }
 
+// Panel window: show just the requested dialog, filling the window.
+function openPanelDialog() {
+  applyTheme();
+  const arg = QS.get('arg') || '';
+  if (S.wrec) S.view = S.wrec.view; // so "add link" etc. target the widget's group
+  const open = {
+    settings: () => openSettings(arg || undefined),
+    customize: () => customizePanel(arg || undefined),
+    layouts: () => layoutsPanel(),
+    rename: () => renameItem(arg),
+    args: () => editArgs(arg),
+    link: () => { if (arg) S.view = arg; addLinkFlow(); },
+    group: () => { const [g, item] = arg.split('|'); editGroup(g || null, item || undefined); },
+  }[PANEL];
+  if (open) open(); else api.closePanel();
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#modalBack').hidden) api.closePanel(); });
+}
+
 // ================================================================ boot
 (async function boot() {
   bind();
   ingest(await api.get());
+  if (IS_PANEL) { openPanelDialog(); return; }
   render();
   watchGeometry();
   bindDrag();

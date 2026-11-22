@@ -836,6 +836,47 @@ ipcMain.handle('widgets:remove', (_, id) => {
 ipcMain.handle('widgets:split', () => { splitIntoWidgets(); return snapshot(); });
 ipcMain.handle('widgets:merge', () => { mergeWidgets(); return snapshot(); });
 ipcMain.handle('hub:show', () => { store.settings.hubVisible = true; save(); toggleWindow(true); broadcast(); });
+// ---------------------------------------------------------------- menus + panels for widgets
+// Widgets are small windows, and HTML menus/dialogs get clipped at their edges. So widgets use
+// native Windows context menus, and open dialogs in a separate, properly sized panel window.
+ipcMain.handle('menu:popup', (e, items) => new Promise((resolve) => {
+  const bw = BrowserWindow.fromWebContents(e.sender);
+  let done = false;
+  const pick = (id) => { if (!done) { done = true; resolve(id); } };
+  const build = (list) => list.map((it) => {
+    if (it.sep) return { type: 'separator' };
+    if (it.header) return { label: it.header, enabled: false };
+    const m = { label: it.label.replace(/&/g, '&&') };
+    if (it.checked) { m.type = 'checkbox'; m.checked = true; }
+    if (it.sub) m.submenu = build(it.sub);
+    else m.click = () => pick(it.id);
+    return m;
+  });
+  try {
+    Menu.buildFromTemplate(build(items)).popup({ window: bw, callback: () => setTimeout(() => pick(null), 50) });
+  } catch { pick(null); }
+}));
+let panelWin = null;
+ipcMain.on('panel:open', (e, kind, arg) => {
+  const src = BrowserWindow.fromWebContents(e.sender);
+  if (!src) return;
+  const wid = (src.webContents.getURL().match(/widget=([^&]+)/) || [])[1] || '';
+  if (panelWin && !panelWin.isDestroyed()) panelWin.destroy();
+  const area = screen.getDisplayMatching(src.getBounds()).workArea;
+  const width = Math.min(820, area.width - 40), height = Math.min(780, area.height - 40);
+  panelWin = new BrowserWindow({
+    width, height, x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2),
+    frame: false, show: false, resizable: true, minimizable: false, maximizable: false, alwaysOnTop: true, skipTaskbar: false,
+    backgroundColor: '#14141c', icon: makeLogo(64), title: 'Haven', webPreferences: WEB_PREFS,
+  });
+  panelWin.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { widget: wid, panel: kind, arg: arg || '' } });
+  panelWin.once('ready-to-show', () => { panelWin.show(); panelWin.focus(); });
+  panelWin.on('blur', () => { /* stay open while e.g. a color picker or file dialog is used */ });
+  panelWin.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
+  panelWin.webContents.on('will-navigate', (ev) => ev.preventDefault());
+});
+ipcMain.on('panel:close', (e) => { const bw = BrowserWindow.fromWebContents(e.sender); if (bw && bw === panelWin) { bw.destroy(); panelWin = null; } });
+
 ipcMain.handle('layouts:presets', () => PRESET_LAYOUTS.map(({ id, name, desc, edge, widgets }) => ({ id, name, desc, edge: !!edge, widgets: widgets.map(([view, r]) => ({ view, r })) })));
 ipcMain.handle('layouts:apply', (_, id) => {
   const def = PRESET_LAYOUTS.find((l) => l.id === id) || (store.settings.customLayouts || []).find((l) => l.id === id);

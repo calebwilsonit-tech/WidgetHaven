@@ -493,6 +493,15 @@ body.locked .grip, body:not(.widget) .grip { display: none; }
 :root { transition: none; }
 body, .nav.active::before, .logo, .search input, .pill.primary, .btn.primary, .switch.on { transition: background-color .6s ease, box-shadow .6s ease; }
 
+/* ---------------------------------------------------------------- panel window (dialogs opened from widgets) */
+body.is-panel { background: var(--bg-solid) !important; clip-path: none; }
+body.is-panel::before, body.is-panel::after { display: none; }
+body.is-panel .app, body.is-panel .grip { display: none !important; }
+body.is-panel .modal-back { background: var(--bg-solid); place-items: stretch; animation: none; }
+body.is-panel .modal { width: 100vw; max-height: 100vh; height: 100vh; border-radius: 0; border: 0; box-shadow: none; animation: none; padding: 22px 26px; }
+body.is-panel .modal h3 { -webkit-app-region: drag; } /* frameless window: drag by the title */
+body.is-panel .modal h3 * { -webkit-app-region: no-drag; }
+
 /* ---------------------------------------------------------------- responsive */
 @media (max-width: 860px) {
   .app { grid-template-columns: 66px 1fr; }

@@ -3,6 +3,13 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.0.1] — 2026-11-22
+
+### Fixed
+- Right-click menus in widgets are now real Windows menus, so they're no longer cut off at the widget's edges.
+- Settings, Customize, Layouts, Rename, Launch options, Add link and group editing open from a widget in their
+  own full-size panel window instead of being squeezed inside the widget. Sliders still preview live on the widget.
+
 ## [1.0.0] — 2026-11-22
 
 First release.
