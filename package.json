@@ -1,7 +1,7 @@
 {
   "name": "haven",
   "productName": "Haven",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "A beautiful desktop organizer for your apps, games, files, folders and links.",
   "main": "src/main.js",
   "scripts": {
@@ -14,9 +14,14 @@
   },
   "author": "Haven",
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/calebwilsonit-tech/WidgetHaven.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calebwilsonit-tech/WidgetHaven.git"
+  },
   "homepage": "https://github.com/calebwilsonit-tech/WidgetHaven",
-  "bugs": { "url": "https://github.com/calebwilsonit-tech/WidgetHaven/issues" },
+  "bugs": {
+    "url": "https://github.com/calebwilsonit-tech/WidgetHaven/issues"
+  },
   "devDependencies": {
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8"
