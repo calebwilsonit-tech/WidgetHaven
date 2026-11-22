@@ -5,7 +5,8 @@ Its accent colors (and light/dark mode) follow your wallpaper automatically.
 
 ## Install
 
-Download **`Haven-Setup-<version>.exe`** and run it. It installs per-user (no admin needed), adds Desktop
+Download **`Haven-Setup-<version>.exe`** from the
+[latest release](https://github.com/calebwilsonit-tech/WidgetHaven/releases/latest) and run it. It installs per-user (no admin needed), adds Desktop
 and Start-menu shortcuts, and starts Haven when it's done. Prefer not to install? Use
 **`Haven-Portable-<version>.exe`** instead.
 
