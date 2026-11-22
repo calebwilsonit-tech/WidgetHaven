@@ -154,7 +154,7 @@ function renderList() {
   box.innerHTML = ST.widgets.map((w) => {
     const d = w.id === sel && cur ? cur : w.design;
     const first = (d.elements || [])[0];
-    const where = w.layer === 'float' ? (w.clickThrough ? 'Floating · click-through' : 'Floating') : 'On the desktop';
+    const where = w.layer === 'float' ? (w.clickThrough ? 'Above all apps · click-through' : 'Above all apps') : 'Desktop only';
     return `<div class="witem ${w.id === sel ? 'on' : ''}" data-w="${w.id}"><div class="ico">${first ? TYPE_ICON[first.type] || '✨' : '✨'}</div><div><b>${esc(d.name || 'Widget')}</b><span>${where}</span></div></div>`;
   }).join('');
   $$('.witem', box).forEach((el) => (el.onclick = () => selectWidget(el.dataset.w)));
@@ -371,8 +371,8 @@ function renderPlacement() {
   g.innerHTML = `<h5>Placement</h5>
     <div class="f"><label>Snap to</label><div class="row" style="align-items:flex-start;gap:12px"><div class="anchors">${spots.map(([h, v]) => `<button data-h="${h}" data-v="${v}" title="${names[h + ':' + v]}" class="${an.h === h && an.v === v && (h === 'center' ? !an.dx : true) && (v === 'middle' ? !an.dy : true) ? 'on' : ''}"></button>`).join('')}</div>
     <span class="hint" style="margin:0">Stays pinned to that spot (or the nearest edge after you drag it), even when the time gets wider or your resolution changes.</span></div></div>
-    ${F('Layer', `<div class="seg" id="layerSeg"><button data-v="desktop" class="${!float ? 'on' : ''}">On the desktop</button><button data-v="float" class="${float ? 'on' : ''}">Floating</button></div>`)}
-    <p class="hint" style="margin-left:100px">${float ? 'Floats above your apps.' : 'Sits on the desktop behind your apps, like the other widgets.'}</p>
+    ${F('Show it', `<div class="seg" id="layerSeg"><button data-v="desktop" class="${!float ? 'on' : ''}">Desktop only</button><button data-v="float" class="${float ? 'on' : ''}">Above all apps</button></div>`)}
+    <p class="hint" style="margin-left:100px">${float ? 'Stays on top of every window, even full apps. Switch to Desktop only to keep it behind them.' : 'Lives on the desktop behind your apps, like the other widgets (shows when you minimize or press Win+D).'}</p>
     ${float ? F('Click-through', `<button class="switch ${rec.clickThrough ? 'on' : ''}" id="ctSw"></button>`) + `<p class="hint" style="margin-left:100px">The mouse passes straight through it. Turn it off here or from the tray icon.</p>` : ''}`;
   $$('.anchors button', g).forEach((b) => (b.onclick = async () => { await api.studioPlace(sel, b.dataset.h, b.dataset.v); }));
   $$('#layerSeg button', g).forEach((b) => (b.onclick = () => api.studioUpdate(sel, { layer: b.dataset.v })));

@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.1.1] — 2026-11-22
+
+### Fixed
+- Studio's layer option was easy to mistake for a screen position ("Floating"), which kept a widget above every app. It now reads **Desktop only** / **Above all apps**, with a clearer explanation.
+
 ## [1.1.0] — 2026-11-22
 
 ### Added

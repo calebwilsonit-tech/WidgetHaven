@@ -78,7 +78,7 @@ document.addEventListener('contextmenu', async (e) => {
       { id: 'p:center:middle', label: 'Center of the screen' }, { id: 'p:center:top', label: 'Top middle' }, { id: 'p:center:bottom', label: 'Bottom middle' },
       { sep: true },
       { id: 'p:left:top', label: 'Top left' }, { id: 'p:right:top', label: 'Top right' }, { id: 'p:left:bottom', label: 'Bottom left' }, { id: 'p:right:bottom', label: 'Bottom right' }] },
-    { id: 'layer', label: fl ? 'Put back on the desktop' : 'Float above windows' },
+    { id: 'layer', label: fl ? 'Desktop only (behind apps)' : 'Keep above all apps' },
     fl ? { id: 'ct', label: 'Click-through (ignore the mouse)' } : null,
     { sep: true },
     { id: 'bigger', label: 'Bigger   (Ctrl + scroll)' },
