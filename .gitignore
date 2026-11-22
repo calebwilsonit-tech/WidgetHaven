@@ -1,0 +1,13 @@
+# dependencies
+node_modules/
+
+# build output (installers live in GitHub Releases, not in git)
+dist/
+
+# local tooling / OS noise
+.claude/
+*.log
+*.tmp.js
+Thumbs.db
+desktop.ini
+.DS_Store

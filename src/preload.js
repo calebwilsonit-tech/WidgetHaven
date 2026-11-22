@@ -1,0 +1,51 @@
+const { contextBridge, ipcRenderer, webUtils, webFrame } = require('electron');
+
+const invoke = (ch) => (...a) => ipcRenderer.invoke(ch, ...a);
+contextBridge.exposeInMainWorld('haven', {
+  get: invoke('lib:get'),
+  rescan: invoke('lib:rescan'),
+  launch: invoke('item:launch'),
+  reveal: invoke('item:reveal'),
+  copyPath: invoke('item:copyPath'),
+  setMeta: invoke('item:meta'),
+  remove: invoke('item:remove'),
+  addPaths: invoke('item:addPaths'),
+  addLink: invoke('item:addLink'),
+  setFavorites: invoke('favorites:set'),
+  setGroups: invoke('groups:set'),
+  setNotes: invoke('notes:set'),
+  setSettings: invoke('settings:set'),
+  setOnboarded: invoke('onboarded'),
+  pick: invoke('dialog:pick'),
+  exportData: invoke('data:export'),
+  importData: invoke('data:import'),
+  openDataFolder: invoke('data:openFolder'),
+  openUrl: invoke('open:url'),
+  addWidget: invoke('widgets:add'),
+  updateWidget: invoke('widgets:update'),
+  removeWidget: invoke('widgets:remove'),
+  splitWidgets: invoke('widgets:split'),
+  mergeWidgets: invoke('widgets:merge'),
+  showHub: invoke('hub:show'),
+  dragStart: () => ipcRenderer.send('drag:start'),
+  dragEnd: () => ipcRenderer.send('drag:end'),
+  resizeStart: () => ipcRenderer.send('resize:start'),
+  resizeEnd: () => ipcRenderer.send('resize:end'),
+  bounds: invoke('win:bounds'),
+  setZoom: (f) => { try { webFrame.setZoomFactor(Math.min(2, Math.max(0.5, f))); } catch {} },
+  layoutPresets: invoke('layouts:presets'),
+  applyLayout: invoke('layouts:apply'),
+  saveLayout: invoke('layouts:save'),
+  deleteLayout: invoke('layouts:delete'),
+  lookAll: invoke('look:all'),
+  pathForFile: (f) => { try { return webUtils.getPathForFile(f); } catch { return ''; } },
+  minimize: () => ipcRenderer.send('win:minimize'),
+  maximize: () => ipcRenderer.send('win:maximize'),
+  hide: () => ipcRenderer.send('win:hide'),
+  quit: () => ipcRenderer.send('win:quit'),
+  on: (ch, fn) => {
+    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw'];
+    if (!allowed.includes(ch)) return;
+    ipcRenderer.on(ch, (_, data) => fn(data));
+  },
+});

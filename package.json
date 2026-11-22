@@ -1,0 +1,63 @@
+{
+  "name": "haven",
+  "productName": "Haven",
+  "version": "1.0.0",
+  "description": "A beautiful desktop organizer for your apps, games, files, folders and links.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "icon": "node tools/make-icon.js",
+    "dist": "electron-builder --win nsis portable",
+    "dist:setup": "electron-builder --win nsis",
+    "release:patch": "npm version patch && npm run dist",
+    "release:minor": "npm version minor && npm run dist"
+  },
+  "author": "Haven",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "koffi": "^3.3.8"
+  },
+  "build": {
+    "appId": "app.haven.organizer",
+    "productName": "Haven",
+    "copyright": "Haven",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "src/icons.ps1",
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Haven",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Haven-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Haven-Portable-${version}.${ext}"
+    }
+  }
+}
