@@ -41,13 +41,34 @@ contextBridge.exposeInMainWorld('haven', {
   saveLayout: invoke('layouts:save'),
   deleteLayout: invoke('layouts:delete'),
   lookAll: invoke('look:all'),
+  // Haven Studio + live wallpaper
+  studioGet: invoke('studio:get'),
+  studioState: invoke('studio:state'),
+  studioAdd: invoke('studio:add'),
+  studioRemove: invoke('studio:remove'),
+  studioUpdate: invoke('studio:update'),
+  studioPlace: invoke('studio:place'),
+  studioFit: invoke('studio:fit'),
+  studioEditing: invoke('studio:editing'),
+  studioOpen: (opts) => ipcRenderer.send('studio:open', opts),
+  studioSaveDesign: invoke('studio:saveDesign'),
+  studioDeleteDesign: invoke('studio:deleteDesign'),
+  studioExport: invoke('studio:export'),
+  studioImport: invoke('studio:import'),
+  systemFonts: invoke('studio:systemFonts'),
+  addFont: invoke('studio:addFont'),
+  liveSet: invoke('live:set'),
+  livePick: invoke('live:pick'),
+  liveGet: invoke('live:get'),
+  closeWindow: () => ipcRenderer.send('win:closeSelf'),
+  minimizeWindow: () => ipcRenderer.send('win:minimizeSelf'),
   pathForFile: (f) => { try { return webUtils.getPathForFile(f); } catch { return ''; } },
   minimize: () => ipcRenderer.send('win:minimize'),
   maximize: () => ipcRenderer.send('win:maximize'),
   hide: () => ipcRenderer.send('win:hide'),
   quit: () => ipcRenderer.send('win:quit'),
   on: (ch, fn) => {
-    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw'];
+    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw', 'studio:design', 'studio:state', 'studio:select', 'live:config', 'live:pause'];
     if (!allowed.includes(ch)) return;
     ipcRenderer.on(ch, (_, data) => fn(data));
   },

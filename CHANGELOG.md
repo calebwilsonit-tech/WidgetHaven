@@ -3,6 +3,25 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.1.0] — 2026-11-22
+
+### Added
+- **Haven Studio** (tray → *Haven Studio…*, or a widget's `⋯` menu): design your own desktop widgets.
+  - Clocks: digital, analog, flip-clock and word clock, plus date, custom text and countdowns. Stack as many as you like in one widget.
+  - Any installed font, 12 bundled fonts, or your own .ttf/.otf files. Size, weight, spacing, italic and caps.
+  - Solid, gradient or wallpaper-matched colors, with glow, shadow, outline, card or frosted backgrounds.
+  - 12 starting looks: Minimal, Neon, Wallpaper match, Retro flip, Elegant, Big bold, Word clock, Analog, Terminal, Pixel, Handwritten and Countdown.
+  - Save your own designs, and export or import `.havenwidget` files to share them.
+  - Snaps like the other widgets. Anchor spots (center, top middle, corners…) keep a widget in place as its text changes width or your resolution changes.
+  - Each widget can sit on the desktop or float above windows, with optional click-through.
+  - Ctrl + scroll on a widget resizes it, and Ctrl+Z undoes edits in the editor.
+- **Live wallpaper** (Studio → *Live wallpaper*): animated wallpaper behind your desktop icons.
+  - Scenes: Aurora, Liquid, Synthwave, Night sky and Bokeh.
+  - Effects over your own wallpaper: Rain, Snow, Fireflies and Breathe.
+  - Or a looping video, an image or an animated GIF.
+  - Colors follow your wallpaper. Speed, amount and frame rate are adjustable, and it works on all screens or just the main one.
+  - Pauses automatically for fullscreen games and apps, on battery and when locked. Turning it off brings your normal wallpaper straight back.
+
 ## [1.0.1] — 2026-11-22
 
 ### Fixed

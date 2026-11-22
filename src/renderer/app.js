@@ -731,7 +731,9 @@ function openSettings(tab) {
       + row('Tile size', '', `<input type="range" min="64" max="140" step="4" value="${s.tileSize}" id="tileSize">`);
   } else if (settingsTab === 'widgets') {
     const list = S.widgets;
-    body = row('Split into widgets', 'Puts Favorites, Apps, Games, Files, Folders and Links on your desktop as separate widgets in a tidy grid', `<button class="btn primary" id="doSplit">Split</button>`)
+    body = row('Haven Studio', 'Design your own clocks, dates, countdowns and text for the desktop', `<button class="btn primary" id="doStudio">Open Studio</button>`)
+      + row('Live wallpaper', 'Animated scenes, videos or GIFs behind your desktop icons', `<button class="btn" id="doLive">Set up…</button>`)
+      + row('Split into widgets', 'Puts Favorites, Apps, Games, Files, Folders and Links on your desktop as separate widgets in a tidy grid', `<button class="btn" id="doSplit">Split</button>`)
       + row('Pop out one tab', 'Add a single widget for any tab or group', `<button class="btn" id="doPop">Choose…</button>`)
       + row('Show main Haven window', 'Keep the full window alongside your widgets', sw('hubVisible', s.hubVisible !== false))
       + row('Lock widgets in place', 'No accidental dragging or resizing', sw('lockPosition', s.lockPosition))
@@ -809,6 +811,8 @@ function openSettings(tab) {
     el.addEventListener('change', () => setSnap({ [key]: +el.value }));
   }
   $('#doSplit', m)?.addEventListener('click', async () => { closeModal(); await splitAll(); });
+  $('#doStudio', m)?.addEventListener('click', () => { closeModal(); api.studioOpen({ tab: 'widgets' }); });
+  $('#doLive', m)?.addEventListener('click', () => { closeModal(); api.studioOpen({ tab: 'live' }); });
   $('#doMerge', m)?.addEventListener('click', async () => { ingest(await api.mergeWidgets()); openSettings(); });
   $('#doPop', m)?.addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); openMenu(viewChoices(null, async (v) => { await popOut(v); openSettings(); }), r.left - 120, r.bottom + 4); });
   m.querySelectorAll('[data-wremove]').forEach((b) => b.onclick = async () => { ingest(await api.removeWidget(b.dataset.wremove)); openSettings(); });
@@ -863,6 +867,8 @@ function widgetsMenu(x, y) {
     S.widgets.length ? { label: `Merge ${S.widgets.length} widget${S.widgets.length > 1 ? 's' : ''} back`, icon: 'home', action: () => api.mergeWidgets() } : null,
     '-',
     { label: 'Customize look…', icon: 'sparkle', action: () => customizePanel() },
+    { label: 'Haven Studio — clocks & more…', icon: 'clock', action: () => api.studioOpen({ tab: 'widgets' }) },
+    { label: 'Live wallpaper…', icon: 'play', action: () => api.studioOpen({ tab: 'live' }) },
     { label: S.settings.lockPosition ? 'Unlock positions' : 'Lock positions', icon: 'pin', action: () => api.setSettings({ lockPosition: !S.settings.lockPosition }) },
   ].filter(Boolean), x, y);
 }
@@ -901,6 +907,8 @@ function widgetOptions(x, y) {
     { label: S.settings.snap?.enabled === false ? 'Turn snapping on' : 'Turn snapping off', icon: 'layers', action: async () => { const on = S.settings.snap?.enabled === false; ingest(await api.setSettings({ snap: { ...S.settings.snap, enabled: on } })); toast(on ? 'Snapping on' : 'Snapping off — widgets move freely'); } },
     { label: 'Snapping settings…', icon: 'gear', action: () => openSettings('widgets') },
     { label: 'Add another widget', icon: 'plus', sub: viewChoices(null, popOut) },
+    { label: 'Haven Studio — clocks & more…', icon: 'clock', action: () => api.studioOpen({ tab: 'widgets' }) },
+    { label: 'Live wallpaper…', icon: 'play', action: () => api.studioOpen({ tab: 'live' }) },
     '-',
     { label: 'Open main Haven', icon: 'home', action: () => api.showHub() },
     { label: 'Settings', icon: 'gear', action: () => openSettings() },

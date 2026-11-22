@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' haven: file: data:; media-src 'self' file:; font-src 'self' haven: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' haven:" />
+  <title>Haven Studio</title>
+  <link rel="stylesheet" href="fonts.css" />
+  <link rel="stylesheet" href="studio.css" />
+</head>
+<body>
+  <header class="bar">
+    <div class="brand"><div class="logo"><i></i><i></i><i></i><i></i></div><b>Haven Studio</b></div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="widgets" class="on">Widgets</button>
+      <button data-tab="live">Live wallpaper</button>
+    </nav>
+    <span class="grow"></span>
+    <button class="wb" id="bMin" title="Minimize">–</button>
+    <button class="wb close" id="bClose" title="Close">✕</button>
+  </header>
+
+  <main id="pWidgets" class="widgets">
+    <aside class="left">
+      <div class="sec-h"><h4>On your desktop</h4><button class="btn sm primary" id="bNew">+ New</button></div>
+      <div id="wList" class="wlist"></div>
+      <div class="sec-h"><h4>Start from a look</h4></div>
+      <div id="presets" class="presets"></div>
+      <div class="sec-h" id="savedH"><h4>Your designs</h4><button class="btn sm" id="bImport" title="Open a .havenwidget file">Import…</button></div>
+      <div id="saved" class="presets"></div>
+    </aside>
+    <section class="stage" id="stage">
+      <div class="stage-bg" id="stageBg"></div>
+      <div class="stage-inner" id="stageInner"></div>
+      <div class="stage-empty" id="stageEmpty" hidden>
+        <b>Make something for your desktop</b>
+        <span>Pick a look on the left, or start with a blank clock.</span>
+        <button class="btn primary" id="bStart">Add a clock</button>
+      </div>
+      <div class="stage-tip">Drag widgets on the desktop to move them · Ctrl + scroll on a widget resizes it · Double-click a widget to edit it</div>
+    </section>
+    <aside class="right" id="inspector"></aside>
+  </main>
+
+  <main id="pLive" class="live" hidden>
+    <section class="live-main">
+      <div class="live-hero">
+        <div class="live-preview"><canvas id="livePrev"></canvas><video id="livePrevVid" muted loop playsinline hidden></video><img id="livePrevImg" hidden alt=""></div>
+        <div class="live-head">
+          <div><h2>Live wallpaper</h2><p id="liveStatus" class="muted">Off</p></div>
+          <button class="switch big" id="liveOn" aria-label="Live wallpaper on or off"></button>
+        </div>
+      </div>
+      <div class="seg" id="liveSource">
+        <button data-v="scene">Scenes</button><button data-v="video">Video</button><button data-v="image">Image or GIF</button>
+      </div>
+      <div id="liveScenes" class="scenes"></div>
+      <div id="liveFile" class="filepick" hidden></div>
+    </section>
+    <aside class="right" id="liveOpts"></aside>
+  </main>
+
+  <div class="menu" id="menu" hidden></div>
+  <div class="toast" id="toast" hidden></div>
+  <script src="studio-core.js"></script>
+  <script src="scenes.js"></script>
+  <script src="studio-editor.js"></script>
+</body>
+</html>

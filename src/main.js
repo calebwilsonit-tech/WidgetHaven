@@ -10,6 +10,9 @@ const { spawn, execFile } = require('child_process');
 const scanner = require('./scanner');
 const desktop = require('./desktop');
 const snap = require('./snap');
+const liveMod = require('./live');
+const studioMod = require('./studio-main');
+let studio = null, live = null;
 let wallpaper = null;
 
 app.setAppUserModelId('app.haven.organizer');
@@ -55,6 +58,9 @@ const DEFAULT_SETTINGS = {
   showRecent: true,        // "Jump back in" / "Continue playing" on Home and the Favorites widget
   sort: 'smart',
   sources: { startmenu: true, steam: true, epic: true, store: true, desktop: true, recent: true },
+  studioDesigns: [],       // saved Studio widget designs
+  customFonts: [],         // [{family, file}] font files added in Studio
+  live: { ...liveMod.DEFAULTS },
 };
 
 function loadStore() {
@@ -65,10 +71,11 @@ function loadStore() {
     favorites: s.favorites || [],   // ordered ids
     groups: s.groups || [],         // [{id,name,emoji,color,items:[ids]}]
     notes: s.notes || '',
-    settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}), sources: { ...DEFAULT_SETTINGS.sources, ...((s.settings || {}).sources || {}) }, snap: { ...snap.DEFAULTS, ...((s.settings || {}).snap || {}) } },
+    settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}), sources: { ...DEFAULT_SETTINGS.sources, ...((s.settings || {}).sources || {}) }, snap: { ...snap.DEFAULTS, ...((s.settings || {}).snap || {}) }, live: { ...liveMod.DEFAULTS, ...((s.settings || {}).live || {}) } },
     window: s.window || null,
     widgetWindow: s.widgetWindow || null,
     widgets: Array.isArray(s.widgets) ? s.widgets : [], // [{id, view, opacity, glass, tileSize, bounds}]
+    studio: Array.isArray(s.studio) ? s.studio : [],    // Studio widgets: [{id, design, layer, anchor, size, bounds}]
     onboarded: !!s.onboarded,
   };
 }
@@ -201,6 +208,16 @@ function registerProtocol() {
       if (p && IMG_EXT.test(p) && fs.existsSync(p)) return net.fetch(pathToFileURL(p).toString());
       return new Response('', { status: 404 });
     }
+    if (u.hostname === 'font' && studio) {
+      const f = path.join(studio.fontDir, path.basename(decodeURIComponent(u.pathname.slice(1))));
+      if (fs.existsSync(f)) return net.fetch(pathToFileURL(f).toString());
+      return new Response('', { status: 404 });
+    }
+    if (u.hostname === 'studio-wall' && studio) {
+      const f = studio.wallpaperFile();
+      if (fs.existsSync(f)) return new Response(fs.readFileSync(f), { headers: { 'content-type': 'image/jpeg' } });
+      return new Response('', { status: 404 });
+    }
     if (u.hostname === 'thumb') {
       // Image previews for picture files in the Files view.
       const p = u.searchParams.get('p');
@@ -316,6 +333,7 @@ const broadcast = () => send('lib:changed', snapshot());
 let hubSummoned = false;
 function keepWidgetsDown() {
   for (const w of widgetWins.values()) if (!w.isDestroyed() && w.isVisible()) desktop.sendToBottom(w);
+  if (studio) for (const w of studio.wins.values()) if (!w.isDestroyed() && !w.__float && w.isVisible() && !dragging.has(w.id)) desktop.sendToBottom(w);
   if (win && !win.isDestroyed() && isWidget() && !hubSummoned && win.isVisible()) desktop.sendToBottom(win);
 }
 setInterval(() => { if (!dialogOpen && !dragging.size) keepWidgetsDown(); }, 1200);
@@ -356,7 +374,7 @@ function drawOverlay(area, data) {
 }
 // Rects of every other visible desktop widget (and the hub when it lives on the desktop).
 function otherRects(self) {
-  const list = [...widgetWins.values()];
+  const list = [...widgetWins.values(), ...(studio ? studio.wins.values() : [])];
   if (win && isWidget()) list.push(win);
   return list.filter((w) => w !== self && !w.isDestroyed() && w.isVisible()).map((w) => w.getBounds());
 }
@@ -419,7 +437,7 @@ function endDrag(w) {
     if (b.width !== st.size.width || b.height !== st.size.height) w.setSize(st.size.width, st.size.height);
   }
   if (st.moved) { w.emit('moved'); if (st.zone) w.emit('resized'); }
-  setTimeout(() => { if (!w.isDestroyed() && !w.isFocused()) desktop.sendToBottom(w); }, 60);
+  setTimeout(() => { if (!w.isDestroyed() && !w.isFocused() && !w.__float) desktop.sendToBottom(w); }, 60);
 }
 ipcMain.on('drag:start', (e) => {
   const w = BrowserWindow.fromWebContents(e.sender);
@@ -733,7 +751,7 @@ function applySettings(prev) {
     setMode(next);
   }
   win.setAlwaysOnTop(!isWidget() && !!s.alwaysOnTop);
-  if (prev && prev.lockPosition !== s.lockPosition) for (const w of widgetWins.values()) if (!w.isDestroyed()) lockWin(w);
+  if (prev && prev.lockPosition !== s.lockPosition) { for (const w of widgetWins.values()) if (!w.isDestroyed()) lockWin(w); if (studio) studio.lockAll(!!s.lockPosition); }
   // Blur on/off needs a new native window (acrylic vs. truly transparent).
   if (prev && prev.glass !== s.glass) {
     recreateHub();
@@ -755,6 +773,10 @@ function buildTray() {
     { label: 'Rescan library', click: () => rescan() },
     { label: 'Settings', click: () => { toggleWindow(true); send('open-settings'); } },
     { type: 'separator' },
+    { label: 'Haven Studio…', click: () => studio.openEditor({ tab: 'widgets' }) },
+    { label: 'Live wallpaper', type: 'checkbox', checked: !!(store.settings.live && store.settings.live.enabled), click: (m) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: m.checked }; save(); live.update(); studio.notifyEditor(); } },
+    studio.hasClickThrough() ? { label: 'Make floating widgets clickable again', click: () => studio.stopClickThrough() } : null,
+    { type: 'separator' },
     { label: 'Split into widgets', click: () => splitIntoWidgets() },
     { label: 'Merge widgets back', enabled: store.widgets.length > 0, click: () => mergeWidgets() },
     { label: 'Desktop widget', type: 'checkbox', checked: isWidget(), click: (m) => { setMode(m.checked ? 'widget' : 'window'); applySettings(); save(); send('lib:changed', snapshot()); } },
@@ -762,7 +784,7 @@ function buildTray() {
     { label: 'Always on top', type: 'checkbox', enabled: !isWidget(), checked: !!store.settings.alwaysOnTop, click: (m) => { store.settings.alwaysOnTop = m.checked; applySettings(); save(); send('lib:changed', snapshot()); } },
     { type: 'separator' },
     { label: 'Quit Haven', click: () => { quitting = true; app.quit(); } },
-  ]);
+  ].filter(Boolean));
   tray.on('click', () => toggleWindow());
   tray.on('right-click', () => tray.popUpContextMenu(menu()));
 }
@@ -998,21 +1020,33 @@ ipcMain.handle('open:url', (_, url) => { if (/^https?:\/\//i.test(url)) shell.op
 ipcMain.on('win:minimize', () => win && win.minimize());
 ipcMain.on('win:maximize', () => win && (win.isMaximized() ? win.unmaximize() : win.maximize()));
 ipcMain.on('win:hide', () => win && win.hide());
+ipcMain.on('win:closeSelf', (e) => { const bw = BrowserWindow.fromWebContents(e.sender); if (bw && bw !== win) bw.close(); });
+ipcMain.on('win:minimizeSelf', (e) => { const bw = BrowserWindow.fromWebContents(e.sender); if (bw) bw.minimize(); });
 ipcMain.on('win:quit', () => { quitting = true; app.quit(); });
 
 // ---------------------------------------------------------------- lifecycle
 app.on('second-instance', () => toggleWindow(true));
-app.on('before-quit', () => { quitting = true; saveNow(); });
+app.on('before-quit', () => { quitting = true; if (live) live.stop(); saveNow(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => {});
 
 app.whenReady().then(async () => {
   registerProtocol();
-  wallpaper = desktop.watchWallpaper((p) => { wallpaper = p; send('theme:wallpaper', p); });
-  screen.on('display-metrics-changed', () => { if (win && isWidget() && !boundsVisible(win.getBounds())) win.setBounds(defaultBounds(true)); });
+  wallpaper = desktop.watchWallpaper((p) => { wallpaper = p; send('theme:wallpaper', p); if (live) live.update(); if (studio) studio.notifyEditor(); });
+  live = liveMod.setup({ getSettings: () => store.settings, getWallpaper: () => wallpaper, desktop, webPrefs: WEB_PREFS, dataDir: DATA_DIR, log: console.warn });
+  studio = studioMod.setup({
+    store, save, desktop, webPrefs: WEB_PREFS, makeLogo, dataDir: DATA_DIR, getWallpaper: () => wallpaper, live, withDialog,
+    isDragging: (w) => dragging.has(w.id), isQuitting: () => quitting,
+  });
+  screen.on('display-metrics-changed', () => {
+    if (win && isWidget() && !boundsVisible(win.getBounds())) win.setBounds(defaultBounds(true));
+    setTimeout(() => studio.replaceAll(), 300);
+  });
   buildLibrary();
   createWindow();
   for (const rec of store.widgets) createWidgetWindow(rec);
+  studio.createAll();
+  live.start();
   ensureOverlay(); // preload the guide layer so the first drag draws instantly
   buildTray();
   applyHotkey(store.settings.hotkey);

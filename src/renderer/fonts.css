@@ -1,0 +1,41 @@
+@font-face{font-family:"Bebas Neue";font-weight:400;font-style:normal;font-display:block;src:url("fonts/bebas-neue-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Playfair Display";font-weight:400;font-style:normal;font-display:block;src:url("fonts/playfair-display-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Playfair Display";font-weight:500;font-style:normal;font-display:block;src:url("fonts/playfair-display-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Playfair Display";font-weight:600;font-style:normal;font-display:block;src:url("fonts/playfair-display-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Playfair Display";font-weight:700;font-style:normal;font-display:block;src:url("fonts/playfair-display-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Playfair Display";font-weight:800;font-style:normal;font-display:block;src:url("fonts/playfair-display-latin-800-normal.woff2") format("woff2")}
+@font-face{font-family:"Playfair Display";font-weight:900;font-style:normal;font-display:block;src:url("fonts/playfair-display-latin-900-normal.woff2") format("woff2")}
+@font-face{font-family:"Orbitron";font-weight:400;font-style:normal;font-display:block;src:url("fonts/orbitron-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Orbitron";font-weight:500;font-style:normal;font-display:block;src:url("fonts/orbitron-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Orbitron";font-weight:600;font-style:normal;font-display:block;src:url("fonts/orbitron-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Orbitron";font-weight:700;font-style:normal;font-display:block;src:url("fonts/orbitron-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Orbitron";font-weight:800;font-style:normal;font-display:block;src:url("fonts/orbitron-latin-800-normal.woff2") format("woff2")}
+@font-face{font-family:"Orbitron";font-weight:900;font-style:normal;font-display:block;src:url("fonts/orbitron-latin-900-normal.woff2") format("woff2")}
+@font-face{font-family:"Space Grotesk";font-weight:300;font-style:normal;font-display:block;src:url("fonts/space-grotesk-latin-300-normal.woff2") format("woff2")}
+@font-face{font-family:"Space Grotesk";font-weight:400;font-style:normal;font-display:block;src:url("fonts/space-grotesk-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Space Grotesk";font-weight:500;font-style:normal;font-display:block;src:url("fonts/space-grotesk-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Space Grotesk";font-weight:600;font-style:normal;font-display:block;src:url("fonts/space-grotesk-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Space Grotesk";font-weight:700;font-style:normal;font-display:block;src:url("fonts/space-grotesk-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:100;font-style:normal;font-display:block;src:url("fonts/jetbrains-mono-latin-100-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:200;font-style:normal;font-display:block;src:url("fonts/jetbrains-mono-latin-200-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:300;font-style:normal;font-display:block;src:url("fonts/jetbrains-mono-latin-300-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:400;font-style:normal;font-display:block;src:url("fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:500;font-style:normal;font-display:block;src:url("fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:600;font-style:normal;font-display:block;src:url("fonts/jetbrains-mono-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:700;font-style:normal;font-display:block;src:url("fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:800;font-style:normal;font-display:block;src:url("fonts/jetbrains-mono-latin-800-normal.woff2") format("woff2")}
+@font-face{font-family:"Pacifico";font-weight:400;font-style:normal;font-display:block;src:url("fonts/pacifico-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Major Mono Display";font-weight:400;font-style:normal;font-display:block;src:url("fonts/major-mono-display-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Monoton";font-weight:400;font-style:normal;font-display:block;src:url("fonts/monoton-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Caveat";font-weight:400;font-style:normal;font-display:block;src:url("fonts/caveat-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Caveat";font-weight:500;font-style:normal;font-display:block;src:url("fonts/caveat-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Caveat";font-weight:600;font-style:normal;font-display:block;src:url("fonts/caveat-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Caveat";font-weight:700;font-style:normal;font-display:block;src:url("fonts/caveat-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Righteous";font-weight:400;font-style:normal;font-display:block;src:url("fonts/righteous-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Cinzel";font-weight:400;font-style:normal;font-display:block;src:url("fonts/cinzel-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Cinzel";font-weight:500;font-style:normal;font-display:block;src:url("fonts/cinzel-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Cinzel";font-weight:600;font-style:normal;font-display:block;src:url("fonts/cinzel-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Cinzel";font-weight:700;font-style:normal;font-display:block;src:url("fonts/cinzel-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Cinzel";font-weight:800;font-style:normal;font-display:block;src:url("fonts/cinzel-latin-800-normal.woff2") format("woff2")}
+@font-face{font-family:"Cinzel";font-weight:900;font-style:normal;font-display:block;src:url("fonts/cinzel-latin-900-normal.woff2") format("woff2")}
+@font-face{font-family:"Press Start 2P";font-weight:400;font-style:normal;font-display:block;src:url("fonts/press-start-2p-latin-400-normal.woff2") format("woff2")}

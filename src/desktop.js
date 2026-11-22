@@ -17,6 +17,22 @@ try {
     GetAsyncKeyState: lib.func('int16_t __stdcall GetAsyncKeyState(int vKey)'),
   };
   try {
+    const RECT = koffi.struct('HAVEN_RECT', { left: 'long', top: 'long', right: 'long', bottom: 'long' });
+    Object.assign(user32, {
+      RECT,
+      FindWindowExW: lib.func('intptr_t __stdcall FindWindowExW(intptr_t parent, intptr_t after, const char16_t* cls, const char16_t* name)'),
+      SetParent: lib.func('intptr_t __stdcall SetParent(intptr_t child, intptr_t parent)'),
+      SendMessageTimeoutW: lib.func('intptr_t __stdcall SendMessageTimeoutW(intptr_t hwnd, uint32_t msg, uintptr_t w, intptr_t l, uint32_t flags, uint32_t timeout, void *result)'),
+      GetForegroundWindow: lib.func('intptr_t __stdcall GetForegroundWindow()'),
+      GetWindowRect: lib.func('bool __stdcall GetWindowRect(intptr_t hwnd, _Out_ HAVEN_RECT *rect)'),
+      GetClassNameW: lib.func('int __stdcall GetClassNameW(intptr_t hwnd, void *buf, int max)'),
+      GetWindowThreadProcessId: lib.func('uint32_t __stdcall GetWindowThreadProcessId(intptr_t hwnd, _Out_ uint32_t *pid)'),
+      IsZoomed: lib.func('bool __stdcall IsZoomed(intptr_t hwnd)'),
+      IsWindow: lib.func('bool __stdcall IsWindow(intptr_t hwnd)'),
+      SystemParametersInfoW: lib.func('bool __stdcall SystemParametersInfoW(uint32_t action, uint32_t param, void *pv, uint32_t winIni)'),
+    });
+  } catch (e) { console.warn('Live wallpaper APIs unavailable:', e.message); }
+  try {
     const dwm = koffi.load('dwmapi.dll');
     user32.DwmSetWindowAttribute = dwm.func('int32_t __stdcall DwmSetWindowAttribute(intptr_t hwnd, uint32_t attr, _In_ uint32_t *value, uint32_t size)');
   } catch {}
@@ -189,4 +205,84 @@ function keyDown(name) {
   try { return (user32.GetAsyncKeyState(VK[name]) & 0x8000) !== 0; } catch { return false; }
 }
 
-module.exports = { pin, sendToBottom, allowForeground, keyDown, moveTo, watchWallpaper, readWallpaper, available: () => !!user32 };
+// ------------------------------------------------------------------ live wallpaper layer
+// Puts a window *behind the desktop icons* (where the wallpaper is drawn). Windows 11 24H2+ keeps the
+// wallpaper host (WorkerW) inside Progman; older builds spawn a separate top-level WorkerW.
+const className = (h) => {
+  const buf = Buffer.alloc(512);
+  const n = user32.GetClassNameW(h, buf, 256);
+  return buf.toString('utf16le', 0, n * 2);
+};
+function wallpaperHost() {
+  const progman = Number(user32.FindWindowW('Progman', null));
+  if (!progman) return null;
+  // Ask Explorer to create the wallpaper WorkerW (harmless if it already exists).
+  user32.SendMessageTimeoutW(progman, 0x052C, 0xD, 0x1, 0 /* SMTO_NORMAL */, 1000, Buffer.alloc(8));
+  user32.SendMessageTimeoutW(progman, 0x052C, 0, 0, 0, 1000, Buffer.alloc(8));
+  const inner = Number(user32.FindWindowExW(progman, 0, 'WorkerW', null));
+  const defView = Number(user32.FindWindowExW(progman, 0, 'SHELLDLL_DefView', null));
+  if (inner && defView) return { mode: 'progman', parent: progman, defView, worker: inner };
+  // Classic layout: the WorkerW that holds the icons (SHELLDLL_DefView) is followed by the wallpaper WorkerW.
+  let w = 0;
+  for (let i = 0; i < 200; i++) {
+    w = Number(user32.FindWindowExW(0, w, 'WorkerW', null));
+    if (!w) break;
+    if (Number(user32.FindWindowExW(w, 0, 'SHELLDLL_DefView', null))) {
+      const next = Number(user32.FindWindowExW(0, w, 'WorkerW', null));
+      if (next) return { mode: 'workerw', parent: next };
+    }
+  }
+  return null;
+}
+const GWL_STYLE = -16, WS_CHILD = 0x40000000, WS_POPUP = 0x80000000;
+// rect: physical pixels, relative to the virtual screen's top-left.
+function attachToWallpaper(win, rect) {
+  if (!user32 || !user32.SetParent) return { ok: false, error: 'unavailable' };
+  try {
+    const host = wallpaperHost();
+    if (!host) return { ok: false, error: 'no wallpaper host' };
+    const h = hwndOf(win);
+    let st = Number(user32.GetWindowLongPtrW(h, GWL_STYLE));
+    st = (st | WS_CHILD) & ~WS_POPUP;
+    user32.SetWindowLongPtrW(h, GWL_STYLE, st);
+    user32.SetParent(h, host.parent);
+    // In the Progman layout, sit just under the icon layer (and above the static wallpaper).
+    const after = host.mode === 'progman' ? host.defView : 0;
+    user32.SetWindowPos(h, after, rect.x, rect.y, rect.width, rect.height, SWP.NOACTIVATE | SWP.FRAMECHANGED | (after ? 0 : 0x4));
+    noBorder(h, true);
+    return { ok: true, mode: host.mode, parent: host.parent };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+function isWindowAlive(h) { try { return !!user32.IsWindow(h); } catch { return false; } }
+// Repaint the normal wallpaper (used after the live wallpaper is turned off).
+function refreshWallpaper() {
+  if (!user32 || !user32.SystemParametersInfoW) return;
+  try {
+    const buf = Buffer.alloc(1040);
+    user32.SystemParametersInfoW(0x73 /* SPI_GETDESKWALLPAPER */, 520, buf, 0);
+    const p = buf.toString('utf16le').split('\0')[0];
+    if (!p) return;
+    user32.SystemParametersInfoW(0x14 /* SPI_SETDESKWALLPAPER */, 0, Buffer.from(p + '\0', 'utf16le'), 0);
+  } catch {}
+}
+// What's in the foreground: lets the live wallpaper pause for games, fullscreen video and maximized apps.
+function foregroundState(displaysPhys) {
+  if (!user32 || !user32.GetForegroundWindow) return null;
+  try {
+    const h = Number(user32.GetForegroundWindow());
+    if (!h) return null;
+    const cls = className(h);
+    if (/^(Progman|WorkerW|Shell_TrayWnd|Shell_SecondaryTrayWnd)$/.test(cls)) return { desktop: true };
+    const pid = [0];
+    user32.GetWindowThreadProcessId(h, pid);
+    const r = {};
+    user32.GetWindowRect(h, r);
+    const fullscreen = (displaysPhys || []).some((d) => r.left <= d.x && r.top <= d.y && r.right >= d.x + d.width && r.bottom >= d.y + d.height);
+    return { pid: pid[0], fullscreen, maximized: !!user32.IsZoomed(h), cls };
+  } catch { return null; }
+}
+
+module.exports = {
+  pin, sendToBottom, allowForeground, keyDown, moveTo, watchWallpaper, readWallpaper, available: () => !!user32,
+  attachToWallpaper, refreshWallpaper, foregroundState, isWindowAlive, hwndOf, wallpaperFile,
+};

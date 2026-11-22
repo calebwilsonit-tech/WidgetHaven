@@ -42,6 +42,8 @@ npm run icon          # regenerate build/icon.png if the logo changes
 
 ## Highlights
 
+- **Haven Studio** (tray → *Haven Studio…*): design your own desktop clocks (digital, analog, flip, word clock), dates, countdowns and text. Choose any font, gradients or wallpaper-matched colors, glow and shadows. Start from 12 looks, then save, export and share designs. Widgets snap to the center, top middle or any corner and stay there.
+- **Live wallpaper** (Studio → *Live wallpaper*): animated scenes (Aurora, Liquid, Synthwave, Night sky, Bokeh), rain, snow or fireflies over your own wallpaper, or a looping video or GIF, all behind your desktop icons. Pauses for games and fullscreen apps.
 - **Desktop widget mode** (default): sits behind your windows, survives Win+D, no taskbar button. Lock its position from Settings or the tray icon.
 - **Split widgets**: tray icon → *Split into widgets* (or the layers button / right-click any sidebar tab → *Pop out*) puts each tab or group on the desktop as its own widget. Each widget's `⋯` menu has *Transparency & size* (opacity 0–100%, blur on/off, tile size), and the `⇅` button changes what it shows. *Merge widgets back* restores the single window.
 - **Customize** (`⋯` → *Customize look*): preset looks (Glass, Frosted, Clear, Outline, Bold, Tinted, Midnight) or save your own; Scale, Opacity and Tile size sliders; text backing Off/Subtle/Solid; apply to one widget or all.
@@ -55,3 +57,5 @@ npm run icon          # regenerate build/icon.png if the logo changes
 - Notes scratchpad, backup/restore, start with Windows, keyboard shortcuts (see Settings → Shortcuts).
 
 Data lives in `%APPDATA%\Haven`.
+
+Bundled fonts are from Google Fonts / Fontsource and are licensed under the SIL Open Font License (see `src/renderer/fonts/OFL-LICENSES.txt`).
