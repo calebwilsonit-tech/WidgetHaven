@@ -196,16 +196,21 @@ function setup({ store, save, palette, log }) {
         if (prev[i] === focusWin) to = { ...area };
         moves.push({ h: prev[i], to, fresh: !known.has(prev[i]) });
         tiledNow.add(prev[i]);
+        slots.set(prev[i], to);
       });
       if (focusWin && prev.includes(focusWin)) { try { k.SetWindowPos(focusWin, 0, 0, 0, 0, 0, 0x1 | 0x2 | 0x10); } catch {} }
     }
     for (const m of moves) known.add(m.h);
+    for (const h of [...slots.keys()]) if (!tiledNow.has(h)) slots.delete(h);
+    watchProcesses();
     animate(moves);
     borders();
   }
 
   // ------------------------------------------------------------ animation
   let anim = null;
+  const slots = new Map();    // tiled window -> the spot it should be in
+  const placedAt = new Map(); // tiled window -> when we last moved it
   const ease = (t) => 1 - Math.pow(1 - t, 3);
   function place(list) {
     // One batched move for every window this frame.
@@ -215,6 +220,8 @@ function setup({ store, save, palette, log }) {
       hdwp = k.DeferWindowPos(hdwp, h, 0, r.x - off.l, r.y - off.t, r.width + off.l + off.r, r.height + off.t + off.b, 0x4 | 0x10 | 0x200);
     }
     if (hdwp) k.EndDeferWindowPos(hdwp);
+    const t = Date.now();
+    for (const { h } of list) placedAt.set(h, t);
   }
   // Some apps (Steam, for one) refuse to shrink below their own minimum size. If a window ends up bigger
   // than its slot, float it centered and tile everything else around it, so nothing overlaps.
@@ -311,10 +318,43 @@ function setup({ store, save, palette, log }) {
   function onEvent(hook, ev, h, obj) {
     if (obj !== 0) return;
     h = Number(h);
+    if (ev === 0x800B) { if (slots.has(h)) heldBack(h); return; }             // a tiled window moved or resized
     if (ev === 0x000A) { if (tiledNow.has(h)) dragging = h; return; }          // move/resize started
     if (ev === 0x000B) { if (dragging) { const d = dragging; dragging = 0; dropped(d); } return; } // ended
     if (ev === 0x0003) { borders(); return; }                                  // focus changed
     soon(ev === 0x8002 || ev === 0x8018 ? 60 : 30);
+  }
+  // Some apps (Opera, for one) resize themselves after being placed, e.g. back to a size they remember.
+  // Put them back in their slot; if an app keeps fighting, float it instead of looping forever.
+  const fights = new Map();
+  const holdTimers = new Map();
+  function heldBack(h) {
+    if (dragging || anim || paused || focusWin === h) return;
+    if (Date.now() - (placedAt.get(h) || 0) < 300) return; // that was us
+    clearTimeout(holdTimers.get(h));
+    holdTimers.set(h, setTimeout(() => {
+      holdTimers.delete(h);
+      const to = slots.get(h);
+      if (!to || !k.IsWindow(h) || dragging || anim) return;
+      if (k.IsZoomed(h) || k.IsIconic(h)) { soon(20); return; }
+      const e = ext(h);
+      if (Math.abs(e.left - to.x) <= 4 && Math.abs(e.top - to.y) <= 4 && Math.abs(e.right - e.left - to.width) <= 4 && Math.abs(e.bottom - e.top - to.height) <= 4) return;
+      const now = Date.now(), list = (fights.get(h) || []).filter((t) => now - t < 4000);
+      list.push(now); fights.set(h, list);
+      if (list.length > 4) { floating.add(h); centerFloat(h); soon(30); return; }
+      const w = rect(h);
+      place([{ h, r: to, off: { l: e.left - w.left, t: e.top - w.top, r: w.right - e.right, b: w.bottom - e.bottom } }]);
+    }, 120));
+  }
+  // Location changes are only watched for the processes that own tiled windows (not system-wide),
+  // so mouse and caret movement elsewhere costs nothing.
+  const procHooks = new Map(); // pid -> hook
+  function watchProcesses() {
+    if (!k || !cb) return;
+    const want = new Set();
+    for (const h of tiledNow) { const p = [0]; k.GetWindowThreadProcessId(h, p); if (p[0]) want.add(p[0]); }
+    for (const [pid, hk] of procHooks) if (!want.has(pid)) { k.UnhookWinEvent(hk); procHooks.delete(pid); }
+    for (const pid of want) if (!procHooks.has(pid)) procHooks.set(pid, k.SetWinEventHook(0x800B, 0x800B, 0, cb, pid, 0, 0x0002));
   }
   // Dragging a tiled window onto another one swaps them (like Hyprland); dropping it elsewhere snaps it back.
   function dropped(h) {
@@ -332,6 +372,8 @@ function setup({ store, save, palette, log }) {
     if (!k) return;
     for (const hk of hooks) k.UnhookWinEvent(hk);
     hooks = [];
+    for (const hk of procHooks.values()) k.UnhookWinEvent(hk);
+    procHooks.clear();
     if (cb) { k.koffi.unregister(cb); cb = null; }
     if (!on) return;
     cb = k.koffi.register(onEvent, k.koffi.pointer(k.WinEventProc));

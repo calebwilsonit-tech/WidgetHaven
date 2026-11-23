@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.9] — 2026-11-22
+
+### Fixed
+- Apps that resize themselves after being tiled (Opera, for one, goes back to a size it remembers) are now put back in their tile. If an app keeps fighting, it's floated instead of looping. Only the apps that own tiled windows are watched, so this costs nothing elsewhere.
+
 ## [1.3.8] — 2026-11-22
 
 ### Changed
