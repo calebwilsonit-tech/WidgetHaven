@@ -241,12 +241,17 @@ function setup(d) {
   function checkFullscreen() {
     if (!wins.size) return;
     const fg = desktop.foregroundState(screen.getAllDisplays().map(physOf));
+    const fsApp = desktop.fullscreenAppRunning();
     for (const w of wins.values()) {
       if (w.isDestroyed()) continue;
       const disp = screen.getAllDisplays().find((x) => x.id === w.__display);
       if (!disp) continue;
       const p = physOf(disp);
-      const covered = !!(fg && !fg.desktop && fg.pid !== process.pid && fg.rect && fg.rect.x <= p.x && fg.rect.y <= p.y && fg.rect.x + fg.rect.width >= p.x + p.width && fg.rect.y + fg.rect.height >= p.y + p.height);
+      const other = !!(fg && !fg.desktop && fg.pid !== process.pid);
+      const sameMon = other && !!fg.monitor && fg.monitor === desktop.monitorOf(w);
+      const covered = other && (
+        (sameMon && (fg.coversMonitor || fsApp)) || // full screen on this bar's monitor (games at any resolution too)
+        (!!fg.rect && fg.rect.x <= p.x && fg.rect.y <= p.y && fg.rect.x + fg.rect.width >= p.x + p.width && fg.rect.y + fg.rect.height >= p.y + p.height));
       if (covered && w.isVisible()) w.hide();
       else if (!covered && !w.isVisible()) { w.showInactive(); w.setAlwaysOnTop(true, 'pop-up-menu'); }
     }

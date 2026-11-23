@@ -98,7 +98,7 @@ HavenTile is Hyprland-style automatic tiling for Windows. It's off by default; t
 
 <img src="docs/screenshots/launcher.png" width="520" alt="App launcher">
 
-**App launcher:** `Win+S` (replacing Windows search, which you can switch back) or `Alt+Space` opens an animated search for your apps, games and files.
+**App launcher:** `Win+S` (replacing Windows search, which you can switch back) or `Alt+Space` opens an animated search for your apps, games and files. You can also have a tap of the Windows key on its own open it instead of Start (Studio → HavenTile → Windows key); Windows key shortcuts like `Win+E` keep working.
 
 ## Develop
 

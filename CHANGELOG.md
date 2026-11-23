@@ -3,6 +3,14 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.6.0] — 2026-11-23
+
+### Added
+- **Windows key opens the launcher (optional):** turn on *Windows key* in Studio → HavenTile and a tap of the Windows key on its own opens Haven's app and file search instead of the Start menu. Win + E, Win + D and other Windows key shortcuts keep working. Off by default.
+
+### Fixed
+- HavenBar no longer draws over full-screen games. It now asks Windows whether the window in front covers its monitor, and whether a full-screen or Direct3D app is running, so games at a different resolution or in exclusive full screen hide the bar too.
+
 ## [1.5.2] — 2026-11-23
 
 ### Fixed

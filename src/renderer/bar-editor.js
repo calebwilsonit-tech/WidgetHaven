@@ -374,6 +374,7 @@
       <div class="group" style="border:0;padding-top:0">
         <div class="f"><label>Win + S</label><div class="row">${sw(l.winS, 'lnWin')}<span class="muted" style="font-size:12px">Opens Haven's launcher instead of Windows search</span></div></div>
         <div class="f"><label>Alt + Space</label><div class="row">${sw(l.altSpace, 'lnAlt')}</div></div>
+        <div class="f"><label>Windows key</label><div class="row">${sw(l.winKey, 'lnSuper')}<span class="muted" style="font-size:12px">Tap the Windows key on its own to open Haven's launcher instead of Start. Win + other keys still work.</span></div></div>
         <button class="btn" id="lnTry">Try it</button>
       </div>`;
     $('#wmOpts').innerHTML = `
@@ -414,7 +415,8 @@
     $('#lnOn').onclick = () => setL({ enabled: !l.enabled });
     $('#lnWin').onclick = () => setL({ winS: !l.winS });
     $('#lnAlt').onclick = () => setL({ altSpace: !l.altSpace });
-    $('#lnTry').onclick = () => toast(l.enabled ? (l.winS ? 'Press Win + S' : 'Press Alt + Space') : 'Turn the launcher on first');
+    $('#lnSuper').onclick = () => setL({ winKey: !l.winKey });
+    $('#lnTry').onclick = () => toast(l.enabled ? (l.winKey ? 'Tap the Windows key' : l.winS ? 'Press Win + S' : 'Press Alt + Space') : 'Turn the launcher on first');
     $('#wmBorder').onclick = () => setT({ border: !t.border });
     $('#wmFollow').onclick = () => setT({ followMouse: t.followMouse === false });
     $$('#wmLayout button').forEach((b) => (b.onclick = () => setT({ layout: b.dataset.v })));

@@ -4,7 +4,7 @@
 const { BrowserWindow, ipcMain, screen, globalShortcut } = require('electron');
 const path = require('path');
 
-const DEFAULTS = { enabled: true, winS: true, altSpace: true };
+const DEFAULTS = { enabled: true, winS: true, altSpace: true, winKey: false };
 
 function setup({ store, save, webPrefs, makeLogo, items, launchItem, palette, getFont, getRadius, focusWin, log }) {
   const S = () => ({ ...DEFAULTS, ...(store.settings.launcher || {}) });
@@ -60,13 +60,23 @@ function setup({ store, save, webPrefs, makeLogo, items, launchItem, palette, ge
     };
   } catch (e) { log && log('launcher hook unavailable: ' + e.message); }
   const down = (vk) => (k.GetAsyncKeyState(vk) & 0x8000) !== 0;
-  let swallowUp = false, winDown = false;
+  let swallowUp = false, winDown = false, winAlone = false, winKeyOn = false;
   function onKey(code, wp, lp) {
     // Keep this tiny: it runs for every key press on the PC.
     if (code !== 0 || !lp) return k.CallNextHookEx(0, code, wp, lp);
     const vk = k.koffi.decode(lp, k.KBD).vk;
     const isDown = wp === 0x100 || wp === 0x104;
-    if (vk === 0x5B || vk === 0x5C) winDown = isDown;
+    if (vk === 0x5B || vk === 0x5C) {
+      // Tapping Windows on its own (no other key, no Ctrl/Alt/Shift) opens the launcher instead of Start.
+      if (isDown && !winDown) winAlone = winKeyOn && !down(0x11) && !down(0x12) && !down(0x10);
+      if (!isDown && winAlone) {
+        winAlone = false; winDown = false;
+        k.keybd_event(0xE8, 0, 0, 0); k.keybd_event(0xE8, 0, 2, 0); // Windows then skips the Start menu on release
+        setImmediate(show);
+        return k.CallNextHookEx(0, code, wp, lp); // still let the key go up, so it never sticks
+      }
+      winDown = isDown;
+    } else if (isDown && vk !== 0xE8) winAlone = false; // Win+E, Win+D and so on keep working
     if (vk === 0x53 /* S */) {
       if (isDown && winDown && !down(0x11) && !down(0x12) && !down(0x10)) {
         swallowUp = true;
@@ -90,7 +100,8 @@ function setup({ store, save, webPrefs, makeLogo, items, launchItem, palette, ge
   let altOn = false;
   function apply() {
     const c = S();
-    hookOn(c.enabled && c.winS);
+    winKeyOn = !!(c.enabled && c.winKey);
+    hookOn(c.enabled && (c.winS || c.winKey));
     const wantAlt = c.enabled && c.altSpace;
     if (wantAlt !== altOn) { try { if (wantAlt) globalShortcut.register('Alt+Space', show); else globalShortcut.unregister('Alt+Space'); } catch {} altOn = wantAlt; }
     if (c.enabled) setTimeout(ensure, 1500); else if (win && !win.isDestroyed()) { win.destroy(); win = null; }

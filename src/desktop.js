@@ -46,6 +46,15 @@ try {
       user32.ABD_SIZE = koffi.sizeof(ABD);
       user32.SHAppBarMessage = shell.func('uintptr_t __stdcall SHAppBarMessage(uint32_t msg, _Inout_ HAVEN_APPBARDATA *data)');
     } catch (e) { console.warn('App bar APIs unavailable:', e.message); }
+    try {
+      // Which monitor a window is on, and that monitor's rectangle, straight from Windows (no DPI conversions).
+      const MONINFO = koffi.struct('HAVEN_MONINFO', { cbSize: 'uint32', rcMonitor: RECT, rcWork: RECT, dwFlags: 'uint32' });
+      user32.MONINFO_SIZE = koffi.sizeof(MONINFO);
+      user32.MonitorFromWindow = lib.func('intptr_t __stdcall MonitorFromWindow(intptr_t h, uint32_t flags)');
+      user32.GetMonitorInfoW = lib.func('bool __stdcall GetMonitorInfoW(intptr_t m, _Inout_ HAVEN_MONINFO *mi)');
+      // Is a full-screen app (a game, a presentation, a video) running? Catches exclusive Direct3D full screen too.
+      user32.SHQueryUserNotificationState = koffi.load('shell32.dll').func('int32_t __stdcall SHQueryUserNotificationState(_Out_ int32_t *state)');
+    } catch (e) { console.warn('Monitor APIs unavailable:', e.message); }
   } catch (e) { console.warn('Live wallpaper APIs unavailable:', e.message); }
   try {
     const dwm = koffi.load('dwmapi.dll');
@@ -287,6 +296,16 @@ function attachToWallpaper(win, rect) {
   } catch (e) { return { ok: false, error: e.message }; }
 }
 // Is a standard pop-up menu open anywhere (window class #32768, what right-click menus use)?
+// The monitor a window is on (0 if unknown).
+function monitorOf(win) {
+  if (!user32 || !user32.MonitorFromWindow) return 0;
+  try { return Number(user32.MonitorFromWindow(hwndOf(win), 2)); } catch { return 0; }
+}
+// Windows' "do not disturb" state: 2 = a full-screen app is running, 3 = a full-screen Direct3D game.
+function fullscreenAppRunning() {
+  if (!user32 || !user32.SHQueryUserNotificationState) return false;
+  try { const s = [0]; if (user32.SHQueryUserNotificationState(s) !== 0) return false; return s[0] === 2 || s[0] === 3; } catch { return false; }
+}
 function menuOpen() {
   if (!user32) return false;
   try { let h = 0; for (let i = 0; i < 6; i++) { h = Number(user32.FindWindowExW(0, h, '#32768', null)); if (!h) return false; if (user32.IsWindowVisible(h)) return true; } } catch {}
@@ -319,7 +338,15 @@ function foregroundState(displaysPhys) {
     const fullscreen = (displaysPhys || []).some((d) => r.left <= d.x && r.top <= d.y && r.right >= d.x + d.width && r.bottom >= d.y + d.height);
     const style = Number(user32.GetWindowLongPtrW(h, GWL_STYLE));
     const popup = ((style >>> 0) & 0x80000000) !== 0 && (style & 0x00C00000) !== 0x00C00000; // WS_POPUP, no title bar: menus
-    return { pid: pid[0], fullscreen, maximized: !!user32.IsZoomed(h), cls, popup, hwnd: h, rect: { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top } };
+    // Does it cover its whole monitor? Compared in Windows' own coordinates, so a game running at a different
+    // resolution, or in exclusive full screen, still counts.
+    let monitor = 0, coversMonitor = false;
+    if (user32.MonitorFromWindow) {
+      monitor = Number(user32.MonitorFromWindow(h, 2 /* nearest */));
+      const mi = { cbSize: user32.MONINFO_SIZE, rcMonitor: {}, rcWork: {}, dwFlags: 0 };
+      if (monitor && user32.GetMonitorInfoW(monitor, mi)) { const m = mi.rcMonitor; coversMonitor = r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom; }
+    }
+    return { pid: pid[0], fullscreen, monitor, coversMonitor, maximized: !!user32.IsZoomed(h), cls, popup, hwnd: h, rect: { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top } };
   } catch { return null; }
 }
 
@@ -483,5 +510,5 @@ module.exports = {
   keyCombo, focusWindow, minimizeWindow, closeWindow, lockWorkstation, foregroundHwnd, setToolWindow,
   appbarSet, appbarRemove, appbarRemoveAll, appbarRemoveHandle, holdRect, taskbarAutoHide, showTaskbars, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
   pin, sendToBottom, allowForeground, keyDown, moveTo, realBounds, placeNative, setCorners, watchWallpaper, readWallpaper, available: () => !!user32,
-  attachToWallpaper, refreshWallpaper, foregroundState, menuOpen, isWindowAlive, hwndOf, wallpaperFile,
+  attachToWallpaper, refreshWallpaper, foregroundState, menuOpen, monitorOf, fullscreenAppRunning, isWindowAlive, hwndOf, wallpaperFile,
 };
