@@ -13,6 +13,7 @@ All notable changes to Haven. Versions follow [Semantic Versioning](https://semv
 - Showing the real tray icons inside Haven's panel is switched off for now: standing in for the taskbar's tray stopped the bar from reserving its strip of the screen.
 
 ### Fixed
+- With the Windows taskbar set to *Hidden*, the bar couldn't reserve its strip after a restart (Windows refuses new reservations while its taskbar is hidden), so windows went under it. Haven now briefly unhides the taskbar while reserving.
 - Snipping Tool (and other screen-capture tools) is never tiled, so its toolbar no longer gets stretched.
 - Tray menus opened at the wrong spot (too far left) on screens with display scaling.
 

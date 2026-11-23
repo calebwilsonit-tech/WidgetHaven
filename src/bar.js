@@ -212,7 +212,11 @@ function setup(d) {
     const phys = physOf(disp);
     const th = Math.round(thicknessDip(c) * disp.scaleFactor);
     w.__reservedAt = Date.now();
+    // Windows won't take a new reservation while its own taskbar is hidden, so unhide it for that moment.
+    const tbHidden = c.taskbar === 'hidden';
+    if (tbHidden) desktop.showTaskbars(true);
     const r = desktop.appbarSet(w, c.position, phys, th, CB_MSG);
+    if (tbHidden) desktop.showTaskbars(false);
     // Remember our handle so a strip left behind by a crash can be cleaned up next time.
     const hw = desktop.hwndOf(w);
     if (!(S().barAppbars || []).includes(hw)) { S().barAppbars = [...(S().barAppbars || []), hw].slice(-8); save(); }
