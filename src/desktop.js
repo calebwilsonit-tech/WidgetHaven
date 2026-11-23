@@ -327,9 +327,10 @@ function focusWindow(h) {
   try {
     if (user32.IsIconic(h)) user32.ShowWindow(h, 9 /* SW_RESTORE */);
     // A tapped Alt lets a background process hand the foreground to another window.
-    user32.keybd_event(0x12, 0, 0, 0);
+    // Tapping an unused key lets a background app hand over focus (Alt would open menu bars).
+    user32.keybd_event(0xE8, 0, 0, 0);
+    user32.keybd_event(0xE8, 0, KEYUP, 0);
     user32.SetForegroundWindow(h);
-    user32.keybd_event(0x12, 0, KEYUP, 0);
   } catch {}
 }
 function minimizeWindow(h) { try { user32.ShowWindow(h, 6 /* SW_MINIMIZE */); } catch {} }

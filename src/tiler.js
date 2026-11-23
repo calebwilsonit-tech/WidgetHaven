@@ -14,6 +14,7 @@ const DEFAULTS = {
   border: true,           // accent border on the active window (Windows 11)
   ignore: 'Taskmgr.exe, Calculator, PowerToys',
   floatApps: 'steamwebhelper, Steam', // open floating (centered); the rest tile around them
+  followMouse: true,      // hovering a tiled window focuses it (Hyprland's default)
 };
 const SKIP_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd', '#32770', 'Windows.UI.Core.CoreWindow',
   'TopLevelWindowForOverflowXamlIsland', 'XamlExplorerHostIslandWindow', 'ApplicationManager_ImmersiveShellWindow', 'ForegroundStaging',
@@ -36,6 +37,9 @@ function setup({ store, save, palette, log }) {
       IsIconic: u.func('bool __stdcall IsIconic(intptr_t h)'),
       IsZoomed: u.func('bool __stdcall IsZoomed(intptr_t h)'),
       ShowWindow: u.func('bool __stdcall ShowWindow(intptr_t h, int cmd)'),
+      WindowFromPoint: u.func('intptr_t __stdcall WindowFromPoint(TILER_POINT p)'),
+      GetAncestor: u.func('intptr_t __stdcall GetAncestor(intptr_t h, uint32_t flags)'),
+      GetAsyncKeyState: u.func('int16_t __stdcall GetAsyncKeyState(int vk)'),
       IsWindow: u.func('bool __stdcall IsWindow(intptr_t h)'),
       GetWindow: u.func('intptr_t __stdcall GetWindow(intptr_t h, uint32_t cmd)'),
       GetWindowLongPtrW: u.func('intptr_t __stdcall GetWindowLongPtrW(intptr_t h, int i)'),
@@ -335,7 +339,7 @@ function setup({ store, save, palette, log }) {
   function focusDir(dx, dy) {
     const n = neighbor(dx, dy);
     if (!n || !n.best) return;
-    k.keybd_event(0x12, 0, 0, 0); k.SetForegroundWindow(n.best); k.keybd_event(0x12, 0, 2, 0);
+    k.keybd_event(0xE8, 0, 0, 0); k.keybd_event(0xE8, 0, 2, 0); k.SetForegroundWindow(n.best);
   }
   function swapDir(dx, dy) {
     const n = neighbor(dx, dy);
@@ -367,11 +371,38 @@ function setup({ store, save, palette, log }) {
     setTimeout(retile, S().animate ? 220 : 10);
   }
 
+  // ------------------------------------------------------------ focus follows mouse
+  // A light cursor check (only while tiling is on): resting on a tiled window for a moment focuses it.
+  // It never steals focus from menus, dialogs or Haven's own pop-ups, and skips while a button is held.
+  let fmTimer = null, fmLast = 0, fmSince = 0;
+  const btnDown = () => [0x01, 0x02, 0x04].some((v) => (k.GetAsyncKeyState(v) & 0x8000) !== 0);
+  function followTick() {
+    if (paused || dragging || focusWin) return;
+    const p = {};
+    if (!k.GetCursorPos(p)) return;
+    const h = Number(k.GetAncestor(k.WindowFromPoint(p), 2 /* GA_ROOT */));
+    if (!tiledNow.has(h)) { fmLast = 0; return; }
+    const fg = Number(k.GetForegroundWindow());
+    if (h === fg) { fmLast = h; return; }
+    if (!tiledNow.has(fg) && !floating.has(fg)) return; // a menu, dialog, launcher… keep it
+    if (btnDown()) return;
+    if (h !== fmLast) { fmLast = h; fmSince = Date.now(); return; }
+    if (Date.now() - fmSince < 120) return;
+    k.keybd_event(0xE8, 0, 0, 0); k.keybd_event(0xE8, 0, 2, 0); k.SetForegroundWindow(h); // unused key: unlocks focus without poking menus
+    // Floating windows stay above the tiles, like in Hyprland.
+    for (const f of floating) if (k.IsWindow(f) && k.IsWindowVisible(f)) { try { k.SetWindowPos(f, 0, 0, 0, 0, 0, 0x1 | 0x2 | 0x10); } catch {} }
+  }
+  function follow(on) {
+    clearInterval(fmTimer); fmTimer = null;
+    if (on) fmTimer = setInterval(followTick, 60);
+  }
+
   // ------------------------------------------------------------ on / off
   function apply() {
     const on = !!(k && S().enabled);
     hook(on);
     keys(on);
+    follow(on && S().followMouse);
     if (on) { paused = false; settled = false; retile(); } else { focusWin = 0; tiledNow.clear(); borders(); order.clear(); known.clear(); floating.clear(); }
   }
   function set(patch) {
@@ -384,7 +415,7 @@ function setup({ store, save, palette, log }) {
   screen.on('display-added', () => soon(500));
   screen.on('display-removed', () => soon(500));
 
-  return { apply, set, cfg: S, retile, available: () => !!k, toggleFocus, focused: () => !!focusWin, stop: () => { hook(false); keys(false); tiledNow.clear(); borders(); }, KEYS: Object.keys(KEYS) };
+  return { apply, set, cfg: S, retile, available: () => !!k, toggleFocus, focused: () => !!focusWin, stop: () => { follow(false); hook(false); keys(false); tiledNow.clear(); borders(); }, KEYS: Object.keys(KEYS) };
 }
 
 module.exports = { setup, DEFAULTS };

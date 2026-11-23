@@ -3,6 +3,14 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.6] — 2026-11-22
+
+### Added
+- **Focus follows mouse** for tiling (on by default, switch in Studio → Windows): rest the pointer on a tiled window and it becomes the active one, like Hyprland. It never takes focus away from menus, dialogs or Haven's pop-ups, waits while a mouse button is held, and keeps floating windows on top.
+
+### Changed
+- Switching windows from the bar or with tiling keys no longer taps Alt behind the scenes, which could open the menu bar in some apps.
+
 ## [1.3.5] — 2026-11-22
 
 ### Added

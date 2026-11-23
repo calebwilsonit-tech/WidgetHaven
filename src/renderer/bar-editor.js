@@ -380,6 +380,7 @@
       <div class="group"><h5>Feel</h5>
         ${fld('Animations', segW('wmAnim', t.animate ? t.speed : 'off', [['smooth', 'Smooth'], ['fast', 'Fast'], ['off', 'Off']]))}
         ${fld('Active border', sw(t.border, 'wmBorder'), 'Colors the focused window\'s edge with your theme accent.')}
+        ${fld('Focus follows mouse', sw(t.followMouse !== false, 'wmFollow'), 'Rest the pointer on a tiled window to switch to it, like Hyprland.')}
       </div>
       <div class="group"><h5>Always float</h5>
         <input type="text" id="wmFloat" value="${esc(t.floatApps ?? 'steamwebhelper, Steam')}" spellcheck="false" style="width:100%">
@@ -403,6 +404,7 @@
     $('#lnAlt').onclick = () => setL({ altSpace: !l.altSpace });
     $('#lnTry').onclick = () => toast(l.enabled ? (l.winS ? 'Press Win + S' : 'Press Alt + Space') : 'Turn the launcher on first');
     $('#wmBorder').onclick = () => setT({ border: !t.border });
+    $('#wmFollow').onclick = () => setT({ followMouse: t.followMouse === false });
     $$('#wmLayout button').forEach((b) => (b.onclick = () => setT({ layout: b.dataset.v })));
     $$('#wmAnim button').forEach((b) => (b.onclick = () => setT(b.dataset.v === 'off' ? { animate: false } : { animate: true, speed: b.dataset.v })));
     for (const [id, key, unit] of [['wmInner', 'inner', 'px'], ['wmOuter', 'outer', 'px'], ['wmMaster', 'master', '%']]) {
