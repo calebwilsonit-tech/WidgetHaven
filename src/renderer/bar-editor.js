@@ -392,6 +392,10 @@
         <input type="text" id="wmFloat" value="${esc(t.floatApps || '')}" placeholder="e.g. Spotify, Calculator" spellcheck="false" style="width:100%">
         <p class="hint">These open centered on top and the rest tile around them. Haven also floats any window that can't shrink to fit its tile (some apps have a minimum size).</p>
       </div>
+      <div class="group"><h5>App window corners</h5>
+        ${segW('wmCorners', t.corners || 'default', [['default', 'Default'], ['round', 'Round'], ['small', 'Small'], ['square', 'Square'], ['bar', 'Match bar']])}
+        <p class="hint">Changes the corners of every app window (Opera, Steam, Explorer…), tiled or not. Windows 11 offers these four shapes. <b>Match bar</b> picks the one closest to your Haven Bar. Back to normal when set to Default or when Haven quits.</p>
+      </div>
       <div class="group"><h5>Leave these alone</h5>
         <input type="text" id="wmIgnore" value="${esc(t.ignore)}" spellcheck="false" style="width:100%">
         <p class="hint">App names (comma separated) that should never be tiled. Dialogs, pop-ups and small fixed-size windows always float.</p>
@@ -413,6 +417,7 @@
     $('#wmFollow').onclick = () => setT({ followMouse: t.followMouse === false });
     $$('#wmLayout button').forEach((b) => (b.onclick = () => setT({ layout: b.dataset.v })));
     $$('#wmOverflow button').forEach((b) => (b.onclick = () => setT({ overflow: b.dataset.v })));
+    $$('#wmCorners button').forEach((b) => (b.onclick = () => setT({ corners: b.dataset.v })));
     $$('#wmAnim button').forEach((b) => (b.onclick = () => setT(b.dataset.v === 'off' ? { animate: false } : { animate: true, speed: b.dataset.v })));
     for (const [id, key, unit] of [['wmInner', 'inner', 'px'], ['wmOuter', 'outer', 'px'], ['wmMaster', 'master', '%']]) {
       const r = $('#' + id);

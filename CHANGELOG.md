@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.17] — 2026-11-23
+
+### Added
+- **App window corners** (Studio → Windows): make every app window (Opera, Steam, Explorer…) square, slightly rounded or rounded, with tiling on or off. New windows get it as they open. *Match bar* picks the shape closest to your Haven Bar. Windows go back to normal when it's set to Default or Haven quits. Windows 11 allows these shapes only, not exact sizes.
+
 ## [1.3.16] — 2026-11-22
 
 ### Added

@@ -16,12 +16,13 @@ const DEFAULTS = {
   floatApps: '',           // apps that always open floating (centered); the rest tile around them
   followMouse: true,      // hovering a tiled window focuses it (Hyprland's default)
   overflow: 'float',      // when a window can't fit even the roomiest tile: 'float' | 'desktop' (its own virtual desktop)
+  corners: 'default',     // app window corners (works with tiling on or off): 'default' | 'round' | 'small' | 'square' | 'bar'
 };
 const SKIP_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd', '#32770', 'Windows.UI.Core.CoreWindow',
   'TopLevelWindowForOverflowXamlIsland', 'XamlExplorerHostIslandWindow', 'ApplicationManager_ImmersiveShellWindow', 'ForegroundStaging',
   'MultitaskingViewFrame', 'NotifyIconOverflowWindow', 'Windows.UI.Composition.DesktopWindowContentBridge', 'TaskManagerWindow_Mini', 'tooltips_class32']);
 
-function setup({ store, save, palette, log, vd }) {
+function setup({ store, save, palette, log, vd, barRadius }) {
   const S = () => ({ ...DEFAULTS, ...(store.settings.tiler || {}) });
   let k = null;
   try {
@@ -534,8 +535,48 @@ function setup({ store, save, palette, log, vd }) {
     if (on) fmTimer = setInterval(followTick, 25);
   }
 
+  // ------------------------------------------------------------ app window corners
+  // Windows 11 lets any window be square, slightly rounded or rounded (DWMWA_WINDOW_CORNER_PREFERENCE).
+  // Applied to every app window, and to new ones as they open, whether or not tiling is on.
+  const CORNER = { default: 0, square: 1, round: 2, small: 3 };
+  const cornered = new Set();
+  let cornerHook = 0, cornerCb = null;
+  function cornerValue() {
+    let m = S().corners || 'default';
+    if (m === 'bar') { const r = barRadius ? barRadius() : 8; m = r <= 2 ? 'square' : r <= 6 ? 'small' : 'round'; }
+    return CORNER[m] ?? 0;
+  }
+  function appWindow(h) {
+    if (!k.IsWindowVisible(h) || Number(k.GetWindow(h, 4)) !== 0) return false;
+    const style = Number(k.GetWindowLongPtrW(h, -16)), ex = Number(k.GetWindowLongPtrW(h, -20));
+    if ((style & 0x00C00000) !== 0x00C00000 || (ex & 0x80)) return false; // needs a caption; no tool windows
+    if (SKIP_CLASSES.has(cls(h))) return false;
+    const p = [0]; k.GetWindowThreadProcessId(h, p);
+    return p[0] !== process.pid;
+  }
+  function setCorner(h, v) { try { k.DwmSetWindowAttribute(h, 33, [v], 4); if (v) cornered.add(h); else cornered.delete(h); } catch {} }
+  function applyCorners() {
+    if (!k) return;
+    const v = cornerValue();
+    if (!v) {
+      for (const h of cornered) if (k.IsWindow(h)) setCorner(h, 0);
+      cornered.clear();
+    } else {
+      const cb = k.koffi.register((h) => { h = Number(h); if (appWindow(h)) setCorner(h, v); return true; }, k.koffi.pointer(k.EnumProc));
+      try { k.EnumWindows(cb, 0); } finally { k.koffi.unregister(cb); }
+    }
+    // New windows: watch for windows being shown (only while a corner style is chosen).
+    if (v && !cornerHook) {
+      cornerCb = k.koffi.register((hook, ev, h, obj) => { if (obj === 0) { h = Number(h); setTimeout(() => { const val = cornerValue(); if (val && k.IsWindow(h) && appWindow(h)) setCorner(h, val); }, 50); } }, k.koffi.pointer(k.WinEventProc));
+      cornerHook = k.SetWinEventHook(0x8002, 0x8002, 0, cornerCb, 0, 0, 0x0002);
+    } else if (!v && cornerHook) {
+      k.UnhookWinEvent(cornerHook); cornerHook = 0; k.koffi.unregister(cornerCb); cornerCb = null;
+    }
+  }
+
   // ------------------------------------------------------------ on / off
   function apply() {
+    applyCorners();
     const on = !!(k && S().enabled);
     hook(on);
     keys(on);
@@ -552,7 +593,12 @@ function setup({ store, save, palette, log, vd }) {
   screen.on('display-added', () => soon(500));
   screen.on('display-removed', () => soon(500));
 
-  return { apply, set, cfg: S, retile, available: () => !!k, toggleFocus, focused: () => !!focusWin, stop: () => { follow(false); hook(false); keys(false); tiledNow.clear(); borders(); }, KEYS: Object.keys(KEYS) };
+  return {
+    apply, set, cfg: S, retile, available: () => !!k, toggleFocus, focused: () => !!focusWin, applyCorners,
+    // On quit, app windows go back to Windows' normal corners.
+    stop: () => { follow(false); hook(false); keys(false); tiledNow.clear(); borders(); if (k) { for (const h of cornered) if (k.IsWindow(h)) setCorner(h, 0); cornered.clear(); } },
+    KEYS: Object.keys(KEYS),
+  };
 }
 
 module.exports = { setup, DEFAULTS };

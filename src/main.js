@@ -1072,7 +1072,10 @@ app.whenReady().then(async () => {
     wallpaperURL: () => studio.wallpaperURL(), customFonts: () => studio.fontsList(),
     launchItem: (id) => launch(id), toggleHub: () => toggleWindow(), openStudio: (tab) => studio.openEditor({ tab }),
     getTiler: () => tiler,
-    onLook: (patch) => { if (store.settings.lookSync === 'widgets' && LOOK_FROM_BAR.some((k) => k in patch)) syncLooks(); },
+    onLook: (patch) => {
+      if (store.settings.lookSync === 'widgets' && LOOK_FROM_BAR.some((k) => k in patch)) syncLooks();
+      if (tiler && (store.settings.tiler || {}).corners === 'bar' && ('radius' in patch || 'style' in patch)) tiler.applyCorners();
+    },
     setLive: (on) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: on }; save(); live.update(); studio.notifyEditor(); },
     // Windows shoves windows out of the bar's strip a moment after it's reserved; refit after that.
     onReserved: (() => { let ts = []; return () => { ts.forEach(clearTimeout); ts = [250, 1000, 2200].map((ms) => setTimeout(refitToWorkAreas, ms)); }; })(),
@@ -1088,7 +1091,7 @@ app.whenReady().then(async () => {
   createWindow();
   for (const rec of store.widgets) createWidgetWindow(rec);
   if (store.settings.tiler && store.settings.tiler.floatApps === 'steamwebhelper, Steam') store.settings.tiler.floatApps = '';
-  tiler = tilerMod.setup({ store, save, palette: () => themes.palette(), log: console.warn, vd: { move: (h) => bar.vdMove(h), clean: (id) => bar.vdClean(id) } });
+  tiler = tilerMod.setup({ store, save, palette: () => themes.palette(), log: console.warn, vd: { move: (h) => bar.vdMove(h), clean: (id) => bar.vdClean(id) }, barRadius: () => { const b = bar.cfg(); return b.style === 'full' ? 0 : b.radius; } });
   launcher = launcherMod.setup({
     store, save, webPrefs: WEB_PREFS, makeLogo, palette: () => themes.palette(), getFont: () => bar.cfg().font, log: console.warn,
     focusWin: (w) => desktop.focusWindow(desktop.hwndOf(w)),

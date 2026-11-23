@@ -89,6 +89,7 @@ Hyprland-style automatic tiling for Windows. It's off by default; turn it on in 
 - **Focus mode** (`Ctrl+Alt+Z` or the maximize button): the active window fills the tiled area.
 - **Apps with a minimum size**, like Steam, get room made for them. If there's truly no space, they float or go to a virtual desktop of their own (your choice).
 - **Keys:** `Ctrl+Alt+arrows` to move focus, add `Shift` to swap windows, `Ctrl+Alt+F` to float, `Ctrl+Alt+P` to pause, and drag a window onto another to swap them.
+- **App window corners:** make every app window square, slightly rounded or rounded, or match the bar (works with tiling off too).
 - **Low overhead:** it only does work when a window opens, closes or moves.
 
 <img src="docs/screenshots/launcher.png" width="520" alt="App launcher">
