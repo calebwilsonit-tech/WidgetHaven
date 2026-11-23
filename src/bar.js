@@ -20,7 +20,7 @@ const DEFAULTS = {
   shortcuts: true,          // Ctrl+Alt+1…9 desktops, Ctrl+Alt+B bar, Ctrl+Alt+T next theme
   left: ['launcher', 'workspaces', 'tasks'],
   center: ['clock'],
-  right: ['media', 'system', 'volume', 'network', 'battery', 'notify', 'power'],
+  right: ['media', 'bgapps', 'system', 'volume', 'network', 'battery', 'notify', 'power'],
   clock: { time: 'h:mm', date: 'ddd MMM d', showDate: true },
   workspaces: { style: 'numbers', labels: [], showAdd: true, highlightOccupied: true },
   tasks: { labels: false, maxLabel: 18 },
@@ -40,6 +40,7 @@ const MODULES = [
   ['network', 'Network', 'Wi-Fi or Ethernet. Click for quick settings.'],
   ['battery', 'Battery', 'Only shows on laptops.'],
   ['theme', 'Theme', 'Switch themes right from the bar.'],
+  ['bgapps', 'Background apps', 'Apps running in the background (like the hidden icons on the taskbar). Click to open or quit them.'],
   ['tray', 'Tray icons', 'Opens the Windows hidden icons.'],
   ['notify', 'Notifications', 'Opens the notification center.'],
   ['quick', 'Quick settings', 'Wi-Fi, Bluetooth, brightness…'],
@@ -434,7 +435,7 @@ function setup(d) {
   const GEOMETRY = ['enabled', 'position', 'style', 'height', 'gap', 'displays'];
 
   // ------------------------------------------------------------ flyout panels (calendar, notifications, Wi-Fi…)
-  const FLY_W = { calendar: 340, notify: 380, network: 340, volume: 340, battery: 320, quick: 380, power: 260, system: 320, themes: 360 };
+  const FLY_W = { bgapps: 320, calendar: 340, notify: 380, network: 340, volume: 340, battery: 320, quick: 380, power: 260, system: 320, themes: 360 };
   const PAD = 14; // transparent margin around the panel for its shadow
   let fly = null, flyKind = null, flyAnchor = null, flyClosedAt = 0, flyClosedKind = null;
   function ensureFly() {
@@ -481,11 +482,18 @@ function setup(d) {
   ipcMain.handle('bar:flyout', (e, kind, rect) => openFly(kind, rect || { x: 0, y: 0, width: 0, height: 0 }, e.sender));
   ipcMain.on('flyout:size', (_, h) => placeFly(h));
   ipcMain.on('flyout:close', () => hideFly());
-  ipcMain.handle('flyout:ask', (_, what) => {
+  let lastBg = new Map(); // pid -> app, from the last scan (actions only work on apps from that list)
+  ipcMain.handle('flyout:ask', async (_, what) => {
     if (what === 'notes') return ask('notes', 'notes');
     if (what === 'net') return ask('net', 'net', 9000);
     if (what === 'bright') return ask('bright', 'bright');
     if (what === 'procs') return ask('procs', 'procs');
+    if (what === 'bgapps') {
+      const list = (await ask('bgapps', 'bgapps', 9000)) || [];
+      lastBg = new Map(list.map((a) => [a.pid, a]));
+      await Promise.all(list.map(async (a) => { try { const img = await app.getFileIcon(a.path, { size: 'large' }); a.icon = img.isEmpty() ? '' : img.toDataURL(); } catch { a.icon = ''; } }));
+      return list;
+    }
     if (what === 'uptime') return os.uptime();
     return null;
   });
@@ -512,6 +520,16 @@ function setup(d) {
         return;
       }
       case 'live': return d.setLive && d.setLive(!!arg);
+      // Background apps: open (most tray apps show their window when started again), quit, or force quit.
+      case 'bgOpen': { const a = lastBg.get(+arg); if (!a) return false; hideFly(); desktop.allowForeground(); shell.openPath(a.path); return true; }
+      case 'bgQuit': case 'bgForce': {
+        const a = lastBg.get(+arg); if (!a) return false;
+        const args = kind === 'bgForce' ? ['/PID', String(a.pid), '/T', '/F'] : ['/PID', String(a.pid), '/T'];
+        await new Promise((r) => execFile('taskkill.exe', args, { windowsHide: true }, () => r()));
+        await new Promise((r) => setTimeout(r, 900));
+        const still = await new Promise((r) => execFile('tasklist.exe', ['/FI', 'PID eq ' + a.pid, '/NH'], { windowsHide: true }, (e, out) => r(String(out || '').includes(String(a.pid)))));
+        return still ? 'running' : 'closed';
+      }
       case 'bar': return set(arg || {});
       default: if (['settings', 'themes', 'launcher', 'notify', 'quick', 'tray'].includes(kind)) hideFly(); return action(kind, arg, e.sender);
     }

@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.19] — 2026-11-23
+
+### Added
+- **Background apps** on the Haven Bar: a button that opens a panel listing apps running in the background, like the hidden icons on the taskbar (Discord, Steam, VPNs and so on). Click one to bring it up, or hover and press ✕ to quit it (with *Force quit* if it won't close). Links open Windows' own hidden icons and Task Manager. It's in the default layout, and you can add it in Studio → Bar.
+
 ## [1.3.18] — 2026-11-23
 
 ### Added

@@ -116,6 +116,11 @@ const R = {
       ${links([['Task Manager', 'taskmgr']])}`;
   },
   themes() { return `<div class="hd"><h3>Theme</h3></div>${themeChips(false)}${links([['Manage themes', 'themesTab']])}`; },
+  bgapps() {
+    return `<div class="hd"><h3>Running in the background</h3></div>
+      <div class="rows bg" id="bg"><div class="muted small">Looking…</div></div>
+      ${links([['Windows hidden icons', 'winTray'], ['Task Manager', 'taskmgr']])}`;
+  },
 };
 function themeChips(compact) {
   return `<div class="${compact ? 'swr' : 'tgrid'}">${(P.themes || []).map((t) => {
@@ -162,6 +167,13 @@ function renderNotes(list, cleared) {
   $('#clr').hidden = !list.length;
   box.innerHTML = list.length ? list.map((n) => `<div class="note"><div class="meta"><b>${esc(n.app || 'App')}</b><span>${ago(n.time)}</span></div>${n.title ? `<div class="tt">${esc(n.title)}</div>` : ''}${n.body ? `<div class="bd">${esc(n.body)}</div>` : ''}<button class="x" data-nx="${n.id}" title="Dismiss">${icx('x')}</button></div>`).join('')
     : `<div class="empty ${cleared ? 'cleared' : ''}">${ic('bell')}<b>You're all caught up</b><div class="small">New notifications will show up here.</div></div>`;
+}
+function renderBg(list) {
+  const box = $('#bg');
+  if (!box) return;
+  list = list || [];
+  box.innerHTML = list.length ? list.map((a) => `<div class="r bgr" data-bg="${a.pid}" title="${esc(a.path)}">${a.icon ? `<img src="${a.icon}" alt="">` : `<span class="bgl">${esc(a.name.charAt(0))}</span>`}<span class="nm">${esc(a.name)}</span><button class="x" data-bgq="${a.pid}" title="Quit">${icx('x')}</button></div>`).join('')
+    : '<div class="empty small">Nothing is running in the background.</div>';
 }
 function renderMeters() {
   const box = $('#meters');
@@ -219,6 +231,7 @@ async function open(p) {
     }
   }
   if (kind === 'battery') { renderBattery(); loadBright('#brightSec'); }
+  if (kind === 'bgapps') renderBg(await api.flyoutAsk('bgapps'));
   if (kind === 'quick') loadBright('#briWrap');
   if (kind === 'system') {
     const t = await api.flyoutAsk('uptime'); const el = $('#up'); if (el) el.textContent = 'Up ' + Math.floor(t / 86400) + 'd ' + Math.floor((t % 86400) / 3600) + 'h';
@@ -270,6 +283,18 @@ panel.addEventListener('click', async (e) => {
   }
   if ((el = t('[data-wcon]'))) { el.textContent = 'Connecting…'; await api.flyoutDo('wifiConnect', el.dataset.wcon); setTimeout(() => open(P), 2500); return; }
   if ((el = t('[data-wdis]'))) { await api.flyoutDo('wifiDisconnect'); setTimeout(() => open(P), 1500); return; }
+  if ((el = t('[data-bgq]'))) {
+    const row = el.closest('.bgr'), pid = el.dataset.bgq;
+    if (el.dataset.force) { row.style.opacity = '.4'; await api.flyoutDo('bgForce', pid); row.classList.add('gone'); setTimeout(() => row.remove(), 260); return; }
+    row.style.opacity = '.5';
+    const r = await api.flyoutDo('bgQuit', pid);
+    if (r === 'closed') { row.classList.add('gone'); setTimeout(() => row.remove(), 260); return; }
+    // Some apps ignore a normal close request: offer to force it.
+    row.style.opacity = '';
+    el.outerHTML = `<button class="btn sm danger" data-bgq="${pid}" data-force="1">Force quit</button>`;
+    return;
+  }
+  if ((el = t('[data-bg]'))) return api.flyoutDo('bgOpen', el.dataset.bg);
   if ((el = t('[data-theme]'))) { await api.barAction('theme', el.dataset.theme); return; }
   if ((el = t('[data-pw]'))) {
     const id = el.dataset.pw;
@@ -289,6 +314,7 @@ panel.addEventListener('click', async (e) => {
     if (u === 'barSettings') return api.flyoutDo('settings');
     if (u === 'themesTab') return api.flyoutDo('themes');
     if (u === 'winQuick') return api.flyoutDo('quick');
+    if (u === 'winTray') return api.flyoutDo('tray');
     return api.flyoutDo('open', u);
   }
 });

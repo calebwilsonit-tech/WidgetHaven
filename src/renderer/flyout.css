@@ -150,3 +150,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px;
 .fp { border-radius: var(--pr, 18px); }
 body.square .fp, body.square .fp *:not(.ic):not(input[type=range]) { border-radius: 2px !important; }
 body.square .th .dots i { border-radius: 50% !important; }
+
+/* background apps */
+.bg .r { cursor: default; }
+.bg img, .bg .bgl { width: 22px; height: 22px; flex: none; border-radius: 5px; }
+.bg .bgl { display: grid; place-items: center; font-size: 11px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--base); }
+.bg .x { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; opacity: 0; color: var(--subtext); }
+.bg .r:hover .x { opacity: 1; } .bg .x:hover { background: var(--red); color: var(--base); }
+.bg .x .ic { width: 12px; height: 12px; }
+.bg .r.gone { animation: slideout .25s ease forwards; }

@@ -132,6 +132,21 @@ public class HavenSys {
   }
   public static void SetVolume(int pct) { if (VolInit()) { var g = Guid.Empty; vol.SetMasterVolumeLevelScalar(Math.Max(0, Math.Min(100, pct)) / 100f, ref g); } }
   public static void SetMute(bool m) { if (VolInit()) { var g = Guid.Empty; vol.SetMute(m, ref g); } }
+  // Which processes own top-level windows, and which of those have one showing. A background app (tray app)
+  // owns windows but shows none; console tools own none at all (their window belongs to the console host).
+  public static string WindowOwners() {
+    var any = new HashSet<uint>(); var shown = new HashSet<uint>();
+    EnumWindows((h, l) => {
+      uint pid; GetWindowThreadProcessId(h, out pid);
+      any.Add(pid);
+      if (IsWindowVisible(h)) {
+        int cloaked = 0; DwmGetWindowAttribute(h, 14, out cloaked, 4);
+        var t = new StringBuilder(8); if (cloaked == 0 && GetWindowTextW(h, t, 8) > 0) shown.Add(pid);
+      }
+      return true;
+    }, IntPtr.Zero);
+    return string.Join(",", any) + "|" + string.Join(",", shown);
+  }
   public static void MoveToDesktop(long h, string id) { if (vdm != null) { var g = new Guid(id); vdm.MoveWindowToDesktop(new IntPtr(h), ref g); } }
 }
 '@
@@ -298,7 +313,7 @@ function Get-NoteCount { if (-not $script:notes) { return 0 }; try { (Await ($sc
 
 function Reply($what, $data) {
   # Lists stay lists even with 0 or 1 entries (PowerShell would otherwise unwrap them).
-  $json = if ($what -in 'notes', 'procs') { if ($data -eq $null -or @($data).Count -eq 0) { '[]' } else { ConvertTo-Json -InputObject @($data) -Compress -Depth 5 } }
+  $json = if ($what -in 'notes', 'procs', 'bgapps') { if ($data -eq $null -or @($data).Count -eq 0) { '[]' } else { ConvertTo-Json -InputObject @($data) -Compress -Depth 5 } }
           elseif ($data -eq $null) { 'null' } else { ConvertTo-Json -InputObject $data -Compress -Depth 5 }
   $out.WriteLine('{"reply":"' + $what + '","data":' + $json + '}'); $out.Flush()
 }
@@ -308,6 +323,27 @@ function Get-NetInfo {
   $saved = @((netsh wlan show profiles) -match ':\s' | % { ($_ -split ':', 2)[1].Trim() } | ? { $_ })
   $ip = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | ? { $_.IPAddress -notmatch '^(127|169\.254)' } | % { "$($_.InterfaceAlias): $($_.IPAddress)" })
   @{ current = $cur; saved = $saved; ip = $ip }
+}
+# Apps running in the background: own an app window but show none (like the ones in the tray).
+function Get-BgApps {
+  $parts = [HavenSys]::WindowOwners().Split('|')
+  $owners = [Collections.Generic.HashSet[int]]::new(); foreach ($x in $parts[0].Split(',')) { if ($x) { [void]$owners.Add([int]$x) } }
+  $shown = [Collections.Generic.HashSet[int]]::new(); foreach ($x in $parts[1].Split(',')) { if ($x) { [void]$shown.Add([int]$x) } }
+  $sid = (Get-Process -Id $PID).SessionId
+  $skip = 'helper|crash|update|service|broker|host|webview|runtime|elevat|setup|install|squirrel|subprocess|plugin|addin|provider|server|notifier|daemon|watchdog|prelaunch|gpu|renderer|utility|conhost|powershell|cmd|bash|python|node|electron'
+  $mine = [Diagnostics.Process]::GetCurrentProcess().Id
+  $list = foreach ($g in (Get-Process | ? { $_.SessionId -eq $sid -and $_.Path } | Group-Object Path)) {
+    $path = $g.Name
+    if ($path -like 'C:\Windows\*' -or $path -like '*_cw5n1h2txyewy\*') { continue }
+    $exe = [IO.Path]::GetFileNameWithoutExtension($path)
+    if ($exe -match $skip -or $exe -match 'GameAssist|WidgetBoard|CrossDevice') { continue }
+    $ids = @($g.Group | % { $_.Id })
+    if (-not ($ids | ? { $owners.Contains($_) })) { continue }   # no app window at all: a console tool or a pure service
+    if ($ids | ? { $shown.Contains($_) }) { continue }            # showing a window: it's on the taskbar already
+    $desc = ''; try { $desc = "$((Get-Item $path).VersionInfo.FileDescription)" } catch {}
+    @{ name = $(if ($desc -and $desc.Length -lt 40) { $desc } else { $exe }); pid = $ids[0]; path = $path }
+  }
+  @($list | Sort-Object { $_.name })
 }
 function Get-Procs { @(Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 6 | % { @{ name = "$($_.ProcessName)"; mb = [math]::Round($_.WorkingSet64 / 1MB) } }) }
 
@@ -357,6 +393,7 @@ while ($true) {
       'setBright' { try { Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 1; Brightness = [byte]$a[1] } | Out-Null } catch {} }
       'net' { Reply 'net' (Get-NetInfo) }
       'procs' { Reply 'procs' (Get-Procs) }
+      'bgapps' { Reply 'bgapps' (Get-BgApps) }
       'vdnew' { try { $id = [HavenVD.VD]::MoveToNew([long]$a[1]); Reply 'vd' @{ ok = $true; id = $id } } catch { Reply 'vd' @{ ok = $false; error = "$($_.Exception.Message)" } } }
       'vdclean' { try { $null = [HavenVD.VD]::RemoveIfEmpty($a[1]) } catch {} }
       'vdhome' { try { [HavenVD.VD]::MoveHome([long]$a[1]) } catch {}; Reply 'vdhome' $true }

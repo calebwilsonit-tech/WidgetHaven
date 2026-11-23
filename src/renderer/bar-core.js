@@ -24,6 +24,7 @@
     music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     cal: '<rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/>',
+    apps: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M17 13.5v7M13.5 17h7"/>',
   };
   const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${P[n] || ''}</svg>`;
   const LOGO = '<span class="hb-logo"><i></i><i></i><i></i><i></i></span>';
@@ -163,6 +164,7 @@
         return `<button class="hb-btn" data-fly="themes" data-wheel="theme" title="Theme: ${esc(t ? t.name : 'Auto')} · click to pick, scroll to switch">${ic('palette', 'acc')}<span>${esc(t ? t.name : 'Auto')}</span></button>`;
       },
       tray: () => `<button class="hb-btn" data-act="tray" title="Hidden icons">${ic('up')}</button>`,
+      bgapps: () => `<button class="hb-btn" data-fly="bgapps" title="Apps running in the background">${ic('apps')}</button>`,
       notify: () => `<button class="hb-btn hb-notify" data-fly="notify" title="${ST.notes ? ST.notes + ' notification' + (ST.notes > 1 ? 's' : '') : 'Notifications'}">${ic('bell')}${ST.notes ? `<i class="badge">${ST.notes > 99 ? '99+' : ST.notes}</i>` : ''}</button>`,
       quick: () => `<button class="hb-btn" data-fly="quick" title="Quick settings">${ic('sliders')}</button>`,
       power: () => `<button class="hb-btn hb-power" data-fly="power" title="Power">${ic('power')}</button>`,
