@@ -3,6 +3,14 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.16] — 2026-11-22
+
+### Added
+- **Widget corners** slider (Settings → Appearance): set how round Haven's windows and widgets are, from square (0) to very round (28px). With *Match looks* set to *Follow the bar*, it follows the bar's roundness until you pick a value yourself.
+
+### Fixed
+- Square widgets still had rounded edges and outlines, because a hidden 10px rounded mask clipped every Haven window. The mask now follows the corner setting.
+
 ## [1.3.15] — 2026-11-22
 
 ### Changed

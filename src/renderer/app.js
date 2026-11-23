@@ -729,6 +729,7 @@ function openSettings(tab) {
       + row('Custom accent', custom ? '' : 'Picking one turns off wallpaper matching', `<div class="swatches">${ACCENTS.map((c) => `<button data-accent="${c}" class="${custom && c === s.accent ? 'on' : ''}" style="background:${c}"></button>`).join('')}<input type="color" id="accentCustom" value="${esc(s.accent)}" title="Custom color"></div>`)
       + row('Transparency', `Opacity ${s.opacity ?? 72}% · ${s.glass ? 'frosted blur' : 'clear, no blur'} — widgets can override this`, `<button class="btn" id="openTransparency">Adjust…</button>`)
       + row('Solid Haven window', 'Keeps the main Haven window opaque, even when your desktop widgets are see-through', sw('hubSolid', s.hubSolid !== false))
+      + row('Widget corners', `${s.widgetRadius ?? 10}px · from square (0) to very round${s.lookSync === 'widgets' ? ' · now following the Haven Bar' : ''}`, `<input type="range" min="0" max="28" step="1" value="${s.widgetRadius ?? 10}" id="cornerSize">`)
       + row('Tile size', '', `<input type="range" min="64" max="140" step="4" value="${s.tileSize}" id="tileSize">`);
   } else if (settingsTab === 'widgets') {
     const list = S.widgets;
@@ -794,6 +795,9 @@ function openSettings(tab) {
   m.querySelector('[data-mode]')?.addEventListener('click', () => set({ mode: S.settings.mode === 'widget' ? 'window' : 'widget' }));
   m.querySelectorAll('[data-unhide]').forEach((b) => b.onclick = async () => { await setMeta(b.dataset.unhide, { hidden: null }); openSettings(); });
   $('#accentCustom', m)?.addEventListener('change', (e) => set({ accent: e.target.value, accentMode: 'custom' }));
+  $('#cornerSize', m)?.addEventListener('input', (e) => { document.documentElement.style.setProperty('--corner', e.target.value + 'px'); });
+  // Picking a roundness by hand stops widgets following the bar's corners.
+  $('#cornerSize', m)?.addEventListener('change', (e) => set({ widgetRadius: +e.target.value, ...(S.settings.lookSync === 'widgets' ? { lookSync: 'off' } : {}) }));
   $('#tileSize', m)?.addEventListener('input', (e) => { document.documentElement.style.setProperty('--tile', e.target.value + 'px'); });
   $('#tileSize', m)?.addEventListener('change', (e) => set({ tileSize: +e.target.value }, false));
   $('#setName', m)?.addEventListener('change', (e) => set({ displayName: e.target.value.trim() }, false));
@@ -1246,7 +1250,8 @@ function applyTheme() {
   } else { root.style.removeProperty('--pc'); S.plateL = null; }
   document.body.classList.toggle('custom-plate', !!pc);
   // Matching the bar: corner roundness and font.
-  if (s.widgetRadius != null) root.style.setProperty('--radius', s.widgetRadius + 'px'); else root.style.removeProperty('--radius');
+  if (s.widgetRadius != null) { root.style.setProperty('--radius', Math.min(14, s.widgetRadius) + 'px'); root.style.setProperty('--corner', s.widgetRadius + 'px'); }
+  else { root.style.removeProperty('--radius'); root.style.removeProperty('--corner'); }
   document.body.classList.toggle('square', s.widgetRadius != null && s.widgetRadius <= 4);
   document.body.classList.toggle('soft-corners', s.widgetRadius != null && s.widgetRadius > 4 && s.widgetRadius <= 10);
   if (s.widgetFont) { const f = `"${s.widgetFont}", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif`; root.style.setProperty('--font', f); root.style.setProperty('--font-display', f); }

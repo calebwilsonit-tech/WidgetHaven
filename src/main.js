@@ -476,7 +476,7 @@ function createWidgetWindow(rec) {
     minimizable: false, maximizable: false, icon: makeLogo(64), title: 'Haven widget', webPreferences: WEB_PREFS,
   });
   w.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { widget: rec.id } });
-  w.once('ready-to-show', () => { w.showInactive(); desktop.pin(w, true); lockWin(w); const r = store.settings.widgetRadius; if (r != null && r <= 4) desktop.setCorners(w, false); });
+  w.once('ready-to-show', () => { w.showInactive(); desktop.pin(w, true); lockWin(w); const r = store.settings.widgetRadius; if (r != null && r < 8) desktop.setCorners(w, false); });
   const persist = () => { const r = store.widgets.find((x) => x.id === rec.id); if (r && !w.isDestroyed() && !w.__refit) { r.bounds = w.getBounds(); rememberFrac(r, r.bounds); save(); } };
   w.on('moved', persist);
   w.on('resized', persist);
@@ -761,7 +761,7 @@ function applyHotkey(acc) {
 function applySettings(prev) {
   const s = store.settings;
   // Square widgets (matching a square bar) also lose Windows 11's rounded window corners.
-  const roundCorners = !(s.widgetRadius != null && s.widgetRadius <= 4);
+  const roundCorners = s.widgetRadius == null || s.widgetRadius >= 8; // Windows rounds by 8px; smaller corners need it off
   for (const w of widgetWins.values()) if (!w.isDestroyed()) desktop.setCorners(w, roundCorners);
   if (!win) return;
   if (prev && (prev.mode !== s.mode || prev.lockPosition !== s.lockPosition)) {

@@ -44,7 +44,8 @@ body {
   color: var(--text);
   /* --bg-a is the user's opacity setting: 0 = see-through, 1 = solid */
   background: rgb(var(--bg-rgb) / var(--bg-a, .72));
-  clip-path: inset(0 round 10px);
+  /* --corner: window roundness (Settings → Appearance → Widget corners, or matched to the Haven Bar) */
+  clip-path: inset(0 round var(--corner, 10px));
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
@@ -443,7 +444,7 @@ input[type=range] { accent-color: var(--accent); width: 160px; }
 
 /* ---------------------------------------------------------------- desktop widget */
 body.widget #btnPin, body.widget #btnMin, body.widget #btnClose { display: none; }
-body.widget .app { border-radius: 12px; }
+body.widget .app { border-radius: calc(var(--corner, 10px) + 2px); }
 body.locked .titlebar { -webkit-app-region: no-drag; }
 /* Desktop widgets are dragged by Haven (so snapping can follow the cursor exactly), not by Windows. */
 body.widget .titlebar { -webkit-app-region: no-drag; cursor: grab; }
@@ -452,7 +453,7 @@ body.widget.locked .titlebar { cursor: default; }
 /* Window border: none by default; "hover" shows a faint edge only while the mouse is over the
    widget (handy for dragging/resizing); "always" keeps it. */
 body.widget::after {
-  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2; border-radius: 10px;
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2; border-radius: var(--corner, 10px);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
   opacity: 0; transition: opacity .25s ease;
 }
@@ -514,8 +515,7 @@ body.is-panel .modal h3 * { -webkit-app-region: no-drag; }
 /* Matching a square or slightly rounded Haven Bar: tiles, cards, buttons and fields follow its corners. */
 body.square *:not(.dot):not(.switch):not(.switch *):not(input[type=range]) { border-radius: 2px !important; }
 body.soft-corners *:not(.dot):not(.switch):not(.switch *):not(input[type=range]) { border-radius: min(6px, 999px) !important; }
-body.square.widget::after { border-radius: 0 !important; }
-body.soft-corners.widget::after { border-radius: 6px !important; }
+body.square.widget::after, body.soft-corners.widget::after { border-radius: var(--corner, 10px) !important; }
 body.square *::before, body.square *::after { border-radius: 2px !important; }
 body.square .switch::after { border-radius: 50% !important; }
 /* The outline reacts to the mouse: quiet at rest, lit with the accent while you hover the widget. */
