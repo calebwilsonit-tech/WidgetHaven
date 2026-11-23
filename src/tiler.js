@@ -20,7 +20,7 @@ const DEFAULTS = {
 };
 const SKIP_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd', '#32770', 'Windows.UI.Core.CoreWindow',
   'TopLevelWindowForOverflowXamlIsland', 'XamlExplorerHostIslandWindow', 'ApplicationManager_ImmersiveShellWindow', 'ForegroundStaging',
-  'MultitaskingViewFrame', 'NotifyIconOverflowWindow', 'Windows.UI.Composition.DesktopWindowContentBridge', 'TaskManagerWindow_Mini', 'tooltips_class32']);
+  'MultitaskingViewFrame', 'NotifyIconOverflowWindow', 'ScreenClippingHost', 'Windows.UI.Composition.DesktopWindowContentBridge', 'TaskManagerWindow_Mini', 'tooltips_class32']);
 
 function setup({ store, save, palette, log, vd, barRadius }) {
   const S = () => ({ ...DEFAULTS, ...(store.settings.tiler || {}) });
@@ -110,7 +110,7 @@ function setup({ store, save, palette, log, vd, barRadius }) {
     if (cloaked(h)) return false;                                                       // on another desktop
     const { pid, exe } = exeOf(h);
     if (pid === process.pid) return false;
-    if (matches(exe, ignored())) return false;
+    if (matches(exe, ignored()) || /^SnippingTool|^ScreenClipping|^ScreenSketch/i.test(exe)) return false; // capture tools must keep their own size
     if (matches(exe, list(S().floatApps))) { floating.add(h); toCenter.push(h); return false; }
     return true;
   }

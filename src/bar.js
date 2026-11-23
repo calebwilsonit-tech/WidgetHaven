@@ -14,6 +14,7 @@ const DEFAULTS = {
   font: 'Space Grotesk', fontSize: 13,
   displays: 'primary',      // 'primary' | 'all'
   hideTaskbar: false,       // (old setting, replaced by taskbar)
+  trayHost: false,          // experimental: show real tray icons in the panel (breaks the bar's reserved strip for now)
   taskbar: 'show',          // Windows taskbar while the bar is on: 'show' | 'autohide' | 'hidden'
   look: 'solid',            // see LOOKS in bar.css
   upper: false, sep: '',
@@ -417,7 +418,7 @@ function setup(d) {
     for (const disp of targets()) create(disp);
     startHelper();
     // The tray stand-in only runs while the bar shows the background apps button.
-    if ([...c.left, ...c.center, ...c.right].includes('bgapps')) tell('trayon');
+    if (c.trayHost && [...c.left, ...c.center, ...c.right].includes('bgapps')) tell('trayon'); // off by default: it interferes with the bar's reserved strip
     sampleStats(); sampleWifi();
     clearInterval(statTimer); statTimer = setInterval(() => { sampleStats(); push(); }, 2000);
     clearInterval(netTimer); netTimer = setInterval(sampleWifi, 20000);
@@ -448,9 +449,36 @@ function setup(d) {
       title: 'Haven panel', icon: makeLogo(64), webPreferences: { ...webPrefs, backgroundThrottling: false },
     });
     fly.loadFile(path.join(__dirname, 'renderer', 'flyout.html'));
-    fly.on('blur', () => hideFly());
+    fly.on('blur', () => { if (!menuMode) hideFly(); });
+    fly.on('focus', () => endMenuMode(false));
     fly.webContents.on('did-finish-load', () => { desktop.setToolWindow(fly); listeners.add(fly.webContents); });
     return fly;
+  }
+  // While an app's tray menu is open (right-click in the Hidden icons panel), the panel stays open behind it,
+  // like Windows' own hidden icons. It closes once you click somewhere else (anything but the panel or that menu).
+  let menuMode = null;
+  function startMenuMode(pid) {
+    endMenuMode(false);
+    if (!fly || fly.isDestroyed()) return;
+    fly.setAlwaysOnTop(false);
+    const t0 = Date.now();
+    menuMode = { pid, timer: setInterval(() => {
+      if (!fly || fly.isDestroyed() || !fly.isVisible()) return endMenuMode(false);
+      const fg = desktop.foregroundState([]);
+      const cls = fg && fg.cls;
+      if (fg && fg.pid === process.pid) return endMenuMode(false);           // back in the panel
+      if (cls === '#32768' || (fg && fg.pid === pid) || Date.now() - t0 < 600) return; // the app's menu is up
+      // The menu closed. If you clicked back into the panel, keep it (and give it focus again); otherwise close it.
+      const c = screen.getCursorScreenPoint(), b = fly.getBounds();
+      if (c.x >= b.x && c.x < b.x + b.width && c.y >= b.y && c.y < b.y + b.height) { endMenuMode(false); fly.focus(); desktop.focusWindow(desktop.hwndOf(fly)); return; }
+      endMenuMode(true);
+    }, 250) };
+  }
+  function endMenuMode(close) {
+    if (!menuMode) return;
+    clearInterval(menuMode.timer);
+    menuMode = null;
+    if (fly && !fly.isDestroyed()) { fly.setAlwaysOnTop(true, 'pop-up-menu'); if (close) hideFly(); }
   }
   function hideFly() {
     if (!fly || fly.isDestroyed() || !fly.isVisible()) return;
@@ -525,9 +553,11 @@ function setup(d) {
       case 'live': return d.setLive && d.setLive(!!arg);
       // Background apps: open (most tray apps show their window when started again), quit, or force quit.
       case 'trayClick': {
-        // Close the panel first so the app's own menu can take the foreground, then click the icon.
-        hideFly();
+        // Haven is in front right now (the panel has focus), so it can let the app come forward and show its menu.
+        desktop.allowForeground();
         const id = String((arg && arg.id) || '').replace(/[^0-9:]/g, ''), btn = arg && arg.button === 'right' ? 'right' : 'left';
+        // Right-click keeps the panel open behind the app's menu; left-click (usually opens the app) closes it.
+        if (btn === 'right') startMenuMode(+(arg && arg.pid) || 0); else hideFly();
         if (id) setTimeout(() => tell('trayclick ' + id + ' ' + btn), 120);
         return true;
       }
@@ -549,7 +579,7 @@ function setup(d) {
     S().bar = { ...prev, ...patch };
     save();
     if (!fromSync && d.onLook) d.onLook(patch);
-    if (['left', 'center', 'right'].some((z) => z in patch) && [...cfg().left, ...cfg().center, ...cfg().right].includes('bgapps')) tell('trayon');
+    if (cfg().trayHost && ['left', 'center', 'right'].some((z) => z in patch) && [...cfg().left, ...cfg().center, ...cfg().right].includes('bgapps')) tell('trayon');
     if (GEOMETRY.some((k) => k in patch && patch[k] !== prev[k])) start();
     else { applyShortcuts(); applyTaskbar(); refresh(); }
     return cfg();

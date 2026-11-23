@@ -175,7 +175,7 @@ function renderTray(list) {
   if (!box) return;
   list = (list || []).filter((t) => t.icon || t.tip);
   trayNames = new Set(list.map((t) => (t.name || '').toLowerCase()));
-  box.innerHTML = list.length ? list.map((t) => `<button class="ti" data-tray="${esc(t.id)}" title="${esc(t.tip || t.name)}">${t.icon ? `<img src="data:image/png;base64,${t.icon}" alt="">` : `<span class="bgl">${esc((t.tip || t.name || '?').charAt(0))}</span>`}</button>`).join('')
+  box.innerHTML = list.length ? list.map((t) => `<button class="ti" data-tray="${esc(t.id)}" data-pid="${t.pid}" title="${esc(t.tip || t.name)}">${t.icon ? `<img src="data:image/png;base64,${t.icon}" alt="">` : `<span class="bgl">${esc((t.tip || t.name || '?').charAt(0))}</span>`}</button>`).join('')
     : '<div class="muted small">No tray icons yet. Apps add theirs as they start.</div>';
   // Apps already shown as tray icons don't need repeating in the list below.
   $$('#bg .bgr').forEach((r) => { const n = (r.dataset.exe || '').toLowerCase(); if (n && trayNames.has(n)) r.remove(); });
@@ -244,7 +244,7 @@ async function open(p) {
     }
   }
   if (kind === 'battery') { renderBattery(); loadBright('#brightSec'); }
-  if (kind === 'bgapps') { api.flyoutAsk('tray').then(renderTray); renderBg(await api.flyoutAsk('bgapps')); }
+  if (kind === 'bgapps') { if (P.config.trayHost) api.flyoutAsk('tray').then(renderTray); else { const tb = $('#tray'); if (tb) tb.innerHTML = '<button class="btn" data-open="winTray">Open Windows hidden icons</button>'; } renderBg(await api.flyoutAsk('bgapps')); }
   if (kind === 'quick') loadBright('#briWrap');
   if (kind === 'system') {
     const t = await api.flyoutAsk('uptime'); const el = $('#up'); if (el) el.textContent = 'Up ' + Math.floor(t / 86400) + 'd ' + Math.floor((t % 86400) / 3600) + 'h';
@@ -344,7 +344,7 @@ panel.addEventListener('contextmenu', (e) => {
   const el = e.target.closest('[data-tray]');
   if (!el) return;
   e.preventDefault();
-  api.flyoutDo('trayClick', { id: el.dataset.tray, button: 'right' });
+  api.flyoutDo('trayClick', { id: el.dataset.tray, button: 'right', pid: +el.dataset.pid });
 });
 
 api.on('flyout:open', open);

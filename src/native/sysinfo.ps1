@@ -396,6 +396,9 @@ public static class TrayHost {
     POINT pt; GetCursorPos(out pt);
     bool right = button == "right";
     uint down = right ? 0x0204u : 0x0201u, up = right ? 0x0205u : 0x0202u;
+    // Like the real taskbar: the pointer moves over the icon first (some apps only react after that).
+    if (ic.version >= 4) PostMessageW(hw, ic.callback, new IntPtr((pt.Y << 16) | (pt.X & 0xFFFF)), new IntPtr((long)((ic.uid << 16) | 0x0200u)));
+    else PostMessageW(hw, ic.callback, new IntPtr(ic.uid), new IntPtr(0x0200));
     if (ic.version >= 4) {
       IntPtr w = new IntPtr((pt.Y << 16) | (pt.X & 0xFFFF));
       Func<uint, IntPtr> L = (ev) => new IntPtr((long)((ic.uid << 16) | (ev & 0xFFFF)));
