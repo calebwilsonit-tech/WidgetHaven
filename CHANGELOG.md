@@ -3,6 +3,36 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.0] — 2026-11-22
+
+### Added
+- **Haven panels for the bar.** Bar buttons now open Haven's own themed panels instead of the Windows ones:
+  - **Clock:** a calendar.
+  - **Bell:** your real Windows notifications. Dismiss one or clear all; the bell shows how many are waiting.
+  - **Network:** your Wi-Fi networks, with connect and disconnect.
+  - **Volume:** a volume slider with what's playing.
+  - **Battery:** battery details and screen brightness.
+  - **CPU & memory:** system use and the apps using the most memory.
+  - **Power:** a confirm-twice power menu.
+  - **Theme:** a theme picker.
+  - **Quick settings:** brightness, volume, live wallpaper, taskbar, bar position, screenshot and more.
+- **20 bar looks** in Studio → Bar, each with a live preview. They include Mocha Islands, Rainbow Pills, Tokyo Neon, Barely There, Gruvbox Retro, Nord Frost, Outrun, Brutalist, Paper, Terminal, Glass Menubar, Bottom Dock, Arcade and more. They can switch to a matching theme too.
+- **New bar styles:** colorful, outline, underline, minimal, neon, soft chips, brutalist, gradient and monochrome, plus capitals and module separators.
+- **Windows taskbar control** at the top of the Bar tab: **Show**, **Auto-hide** or **Hidden** (completely gone). The taskbar always comes back when the bar is turned off or Haven quits.
+- **Tiling windows (beta)** in Studio → Windows. Off by default.
+  - Hyprland-style automatic tiling with dwindle and master layouts, adjustable gaps, animated movement, and your theme's accent on the active window's border.
+  - Drag one window onto another to swap them.
+  - Keys: Ctrl+Alt+arrows to focus, with Shift to swap, Ctrl+Alt+F to float, Ctrl+Alt+P to pause.
+  - It only runs when windows open, close or move, so it costs nothing when idle.
+- **App launcher:** **Win+S** (replacing Windows search; can be switched off) or **Alt+Space** opens an animated search for your apps, games and files.
+
+### Changed
+- The bar's buttons have more breathing room around their hover highlight.
+- The main Haven window is now solid even when your desktop widgets are see-through (Settings → Appearance → *Solid Haven window*).
+
+### Fixed
+- Desktop widget tiles overlapped after the bar took its strip of the screen. Widgets now remember where they sit as a share of the screen and refit cleanly whenever the usable area changes.
+
 ## [1.2.0] — 2026-11-22
 
 ### Added

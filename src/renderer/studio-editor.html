@@ -16,6 +16,7 @@
       <button data-tab="live">Live wallpaper</button>
       <button data-tab="bar">Bar</button>
       <button data-tab="themes">Themes</button>
+      <button data-tab="wm">Windows <small class="beta">beta</small></button>
     </nav>
     <span class="grow"></span>
     <button class="wb" id="bMin" title="Minimize">–</button>
@@ -69,6 +70,9 @@
         <div><h2>Haven Bar</h2><p id="barStatus" class="muted"></p></div>
         <button class="switch big" id="barOn" aria-label="Haven Bar on or off"></button>
       </div>
+      <div class="tbrow"><span>Windows taskbar</span><div class="seg" id="tbSeg"><button data-v="show">Show</button><button data-v="autohide">Auto-hide</button><button data-v="hidden">Hidden</button></div><span class="muted small" id="tbHint"></span></div>
+      <div class="sec-h"><h4>Looks</h4><label class="usecol"><input type="checkbox" id="lookColors" checked> Use its colors</label></div>
+      <div class="looks" id="barLooks"></div>
       <div class="sec-h"><h4>Modules — drag to arrange</h4></div>
       <div class="zones" id="barZones"></div>
       <div class="sec-h"><h4>More modules — drag onto the bar or click to add</h4></div>
@@ -86,11 +90,17 @@
     <aside class="right" id="themeOpts"></aside>
   </main>
 
+  <main id="pWm" class="live" hidden>
+    <section class="live-main" id="wmMain"></section>
+    <aside class="right" id="wmOpts"></aside>
+  </main>
+
   <div class="menu" id="menu" hidden></div>
   <div class="toast" id="toast" hidden></div>
   <script src="studio-core.js"></script>
   <script src="scenes.js"></script>
   <script src="bar-core.js"></script>
+  <script src="bar-presets.js"></script>
   <script src="studio-editor.js"></script>
   <script src="bar-editor.js"></script>
 </body>

@@ -58,8 +58,12 @@
       st.setProperty('--op', String(c.opacity / 100));
       st.setProperty('--fs', c.fontSize + 'px');
       st.setProperty('--font', `"${c.font}", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif`);
-      for (const k of ['base', 'mantle', 'surface', 'text', 'subtext', 'accent', 'accent2', 'red', 'green', 'yellow']) { st.setProperty('--' + k, p[k]); st.setProperty('--' + k + '-rgb', hexRgb(p[k])); }
+      const pal = c.look === 'mono' ? { ...p, accent: p.text, accent2: p.subtext } : p;
+      for (const k of ['base', 'mantle', 'surface', 'text', 'subtext', 'accent', 'accent2', 'red', 'green', 'yellow']) { st.setProperty('--' + k, pal[k]); st.setProperty('--' + k + '-rgb', hexRgb(pal[k])); }
       root.dataset.style = c.style;
+      root.dataset.look = c.look || 'solid';
+      root.dataset.sep = c.sep || '';
+      root.classList.toggle('upper', !!c.upper);
       root.dataset.pos = c.position;
       root.dataset.mode = p.mode;
       root.classList.toggle('glass', !!c.glass && !!payload.wallpaperURL);
@@ -122,7 +126,7 @@
       },
       clock: (c) => {
         const d = new Date();
-        return `<button class="hb-btn hb-clock" data-act="notify" title="${esc(d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}"><b>${esc(fmt(d, c.clock.time))}</b>${c.clock.showDate && c.clock.date ? `<span>${esc(fmt(d, c.clock.date))}</span>` : ''}</button>`;
+        return `<button class="hb-btn hb-clock" data-fly="calendar" title="${esc(d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}"><b>${esc(fmt(d, c.clock.time))}</b>${c.clock.showDate && c.clock.date ? `<span>${esc(fmt(d, c.clock.date))}</span>` : ''}</button>`;
       },
       media: (c) => {
         const m = ST.media;
@@ -133,33 +137,33 @@
       system: () => {
         const s = ST.stats || {};
         const lvl = (v) => (v >= 90 ? 'hot' : v >= 70 ? 'warm' : '');
-        return `<div class="hb-row" title="CPU ${s.cpu ?? 0}% · Memory ${s.memUsed ?? '?'} of ${s.memTotal ?? '?'} GB"><span class="st ${lvl(s.cpu)}">${ic('cpu')}${s.cpu ?? 0}%</span><span class="st ${lvl(s.mem)}">${ic('mem')}${s.mem ?? 0}%</span></div>`;
+        return `<button class="hb-btn hb-row" data-fly="system" title="CPU ${s.cpu ?? 0}% · Memory ${s.memUsed ?? '?'} of ${s.memTotal ?? '?'} GB"><span class="st ${lvl(s.cpu)}">${ic('cpu')}${s.cpu ?? 0}%</span><span class="st ${lvl(s.mem)}">${ic('mem')}${s.mem ?? 0}%</span></button>`;
       },
       volume: () => {
         const v = ST.volume;
-        if (!v) return `<button class="hb-btn" data-act="quick">${ic('vol')}</button>`;
+        if (!v) return `<button class="hb-btn" data-fly="volume">${ic('vol')}</button>`;
         const icn = v.muted || v.level === 0 ? 'mute' : v.level < 45 ? 'volLow' : 'vol';
-        return `<button class="hb-btn hb-vol ${v.muted ? 'muted' : ''}" data-act="mute" data-wheel="vol" title="Volume ${v.level}%${v.muted ? ' (muted)' : ''} · scroll to change">${ic(icn)}<span>${v.muted ? 'Muted' : v.level + '%'}</span><i class="lvl" style="--v:${v.muted ? 0 : v.level}%"></i></button>`;
+        return `<button class="hb-btn hb-vol ${v.muted ? 'muted' : ''}" data-fly="volume" data-wheel="vol" title="Volume ${v.level}%${v.muted ? ' (muted)' : ''} · scroll to change">${ic(icn)}<span>${v.muted ? 'Muted' : v.level + '%'}</span><i class="lvl" style="--v:${v.muted ? 0 : v.level}%"></i></button>`;
       },
       network: () => {
         const n = (ST.stats && ST.stats.net) || {};
         const icn = !n.online ? 'wifiOff' : n.kind === 'wifi' ? 'wifi' : 'lan';
         const t = !n.online ? 'Offline' : n.kind === 'wifi' ? `${n.ssid || 'Wi-Fi'}${n.signal != null ? ' · ' + n.signal + '%' : ''}` : 'Ethernet';
-        return `<button class="hb-btn ${n.online ? '' : 'off'}" data-act="quick" title="${esc(t)}">${ic(icn)}</button>`;
+        return `<button class="hb-btn ${n.online ? '' : 'off'}" data-fly="network" title="${esc(t)}">${ic(icn)}</button>`;
       },
       battery: () => {
         if (!battery || battery.desktop) return '';
         const pct = Math.round(battery.level * 100);
-        return `<button class="hb-btn hb-bat ${pct <= 15 && !battery.charging ? 'low' : ''}" data-act="quick" title="Battery ${pct}%${battery.charging ? ' · charging' : ''}"><span class="bat"><i style="width:${pct}%"></i></span>${battery.charging ? ic('bolt', 'acc') : ''}<span>${pct}%</span></button>`;
+        return `<button class="hb-btn hb-bat ${pct <= 15 && !battery.charging ? 'low' : ''}" data-fly="battery" title="Battery ${pct}%${battery.charging ? ' · charging' : ''}"><span class="bat"><i style="width:${pct}%"></i></span>${battery.charging ? ic('bolt', 'acc') : ''}<span>${pct}%</span></button>`;
       },
       theme: () => {
         const t = (P0.themes || []).find((x) => x.id === P0.themeId);
-        return `<button class="hb-btn" data-act="themeNext" data-arg="1" data-wheel="theme" title="Theme: ${esc(t ? t.name : 'Auto')} · click or scroll to switch">${ic('palette', 'acc')}<span>${esc(t ? t.name : 'Auto')}</span></button>`;
+        return `<button class="hb-btn" data-fly="themes" data-wheel="theme" title="Theme: ${esc(t ? t.name : 'Auto')} · click to pick, scroll to switch">${ic('palette', 'acc')}<span>${esc(t ? t.name : 'Auto')}</span></button>`;
       },
       tray: () => `<button class="hb-btn" data-act="tray" title="Hidden icons">${ic('up')}</button>`,
-      notify: () => `<button class="hb-btn" data-act="notify" title="Notifications">${ic('bell')}</button>`,
-      quick: () => `<button class="hb-btn" data-act="quick" title="Quick settings">${ic('sliders')}</button>`,
-      power: () => `<button class="hb-btn hb-power" data-act="powerMenu" title="Power">${ic('power')}</button>`,
+      notify: () => `<button class="hb-btn hb-notify" data-fly="notify" title="${ST.notes ? ST.notes + ' notification' + (ST.notes > 1 ? 's' : '') : 'Notifications'}">${ic('bell')}${ST.notes ? `<i class="badge">${ST.notes > 99 ? '99+' : ST.notes}</i>` : ''}</button>`,
+      quick: () => `<button class="hb-btn" data-fly="quick" title="Quick settings">${ic('sliders')}</button>`,
+      power: () => `<button class="hb-btn hb-power" data-fly="power" title="Power">${ic('power')}</button>`,
     };
     const trim = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + '…' : s || '');
     function renderMod(id) {
@@ -222,10 +226,11 @@
     // ---------------------------------------------------------- input
     if (!opts.preview) {
       root.addEventListener('click', (e) => {
+        const f = e.target.closest('[data-fly]');
+        if (f) { const r = f.getBoundingClientRect(); return opts.flyout && opts.flyout(f.dataset.fly, { x: r.left, y: r.top, width: r.width, height: r.height }); }
         const b = e.target.closest('[data-act]');
         if (!b) return;
         const a = b.dataset.act;
-        if (a === 'powerMenu') return opts.menu && opts.menu({ power: true });
         opts.action && opts.action(a, b.dataset.arg);
       });
       root.addEventListener('auxclick', (e) => {

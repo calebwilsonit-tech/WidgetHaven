@@ -65,6 +65,15 @@ contextBridge.exposeInMainWorld('haven', {
   barSet: invoke('bar:set'),
   barAction: invoke('bar:action'),
   barMenu: invoke('bar:menu'),
+  barFlyout: invoke('bar:flyout'),
+  flyoutSize: (h) => ipcRenderer.send('flyout:size', h),
+  flyoutClose: () => ipcRenderer.send('flyout:close'),
+  flyoutAsk: invoke('flyout:ask'),
+  flyoutDo: invoke('flyout:do'),
+  launcherLaunch: invoke('launcher:launch'),
+  launcherHide: () => ipcRenderer.send('launcher:hide'),
+  wmGet: invoke('wm:get'),
+  wmSet: invoke('wm:set'),
   themeList: invoke('theme:list'),
   themeApply: invoke('theme:apply'),
   themeSave: invoke('theme:save'),
@@ -80,7 +89,7 @@ contextBridge.exposeInMainWorld('haven', {
   hide: () => ipcRenderer.send('win:hide'),
   quit: () => ipcRenderer.send('win:quit'),
   on: (ch, fn) => {
-    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw', 'studio:design', 'studio:state', 'studio:select', 'live:config', 'live:pause', 'bar:config', 'bar:state', 'theme:changed'];
+    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw', 'studio:design', 'studio:state', 'studio:select', 'live:config', 'live:pause', 'bar:config', 'bar:state', 'theme:changed', 'flyout:open', 'flyout:close', 'launcher:open', 'launcher:close'];
     if (!allowed.includes(ch)) return;
     ipcRenderer.on(ch, (_, data) => fn(data));
   },

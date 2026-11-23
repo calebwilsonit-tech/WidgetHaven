@@ -51,8 +51,59 @@
     $('#barStatus').textContent = c.enabled ? `On — ${c.position === 'top' ? 'top' : 'bottom'} of ${c.displays === 'all' ? 'every screen' : 'your main screen'}. Ctrl+Alt+B hides or shows it.` : 'Off. Turn it on to put it on your desktop (Ctrl+Alt+B works too).';
     $('#barOn').onclick = () => { c.enabled = !c.enabled; change({ enabled: c.enabled }, { now: true, rerender: true }); };
     mountPreview();
+    renderTaskbar();
+    renderLooks();
     renderZones();
     renderBarOpts();
+  }
+  function renderTaskbar() {
+    const c = C();
+    $$('#tbSeg button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.v === (c.taskbar || 'show'));
+      b.onclick = () => { c.taskbar = b.dataset.v; change({ taskbar: c.taskbar }, { now: true }); renderTaskbar(); };
+    });
+    $('#tbHint').textContent = { show: 'Both bars are visible.', autohide: 'Slides in when your mouse touches the screen edge.', hidden: "Gone completely. The Windows key still opens Start, and Haven brings the taskbar back when the bar is off." }[c.taskbar || 'show'];
+  }
+
+  // Ready-made looks: live mini bars you can click.
+  const lookViews = [];
+  let palettes = null;
+  async function renderLooks() {
+    const box = $('#barLooks');
+    if (!palettes) { const l = await api.themeList(); palettes = Object.fromEntries(l.themes.map((t) => [t.id, t.palette])); }
+    for (const v of lookViews) v.destroy();
+    lookViews.length = 0;
+    box.innerHTML = '';
+    for (const p of window.HavenBarPresets || []) {
+      const card = document.createElement('div');
+      card.className = 'lk';
+      card.innerHTML = `<div class="lkp"><div class="lkw"></div><div class="lkh"></div></div><div class="lkt"><b>${esc(p.name)}</b><span>${esc(p.desc)}</span></div>`;
+      box.appendChild(card);
+      const host = card.querySelector('.lkh'), wall = card.querySelector('.lkw');
+      wall.style.backgroundImage = B.wallpaperURL ? `url("${B.wallpaperURL}")` : '';
+      // Cards skip the frosted blur (20 blurred bars at once would be heavy); the real bar keeps it.
+      const cfg = { ...C(), ...p.config, glass: false, clock: C().clock, workspaces: { ...C().workspaces, ...(p.config.workspaces || {}) }, tasks: { ...C().tasks, ...(p.config.tasks || {}) } };
+      const VW = 960;
+      const k = () => card.querySelector('.lkp').clientWidth / VW;
+      const th = cfg.style === 'full' ? cfg.height : cfg.height + cfg.gap * 2;
+      host.style.width = VW + 'px'; host.style.height = th + 'px';
+      const v = HavenBar.mount(host, { preview: true, frame: () => { const r = wall.getBoundingClientRect(); return { w: VW, h: VW * 9 / 16, ox: r.left, oy: r.top, scale: k() }; } });
+      const pal = (p.theme && palettes[p.theme]) || B.palette;
+      v.setConfig({ ...B, config: cfg, palette: pal });
+      v.setState(SAMPLE);
+      const size = () => { const s = k(); host.style.transform = `scale(${s})`; wall.style.width = VW * s + 'px'; wall.style.height = VW * 9 / 16 * s + 'px'; host.style.top = cfg.position === 'bottom' ? '' : '0'; host.style.bottom = cfg.position === 'bottom' ? '0' : ''; host.style.transformOrigin = cfg.position === 'bottom' ? 'bottom left' : 'top left'; wall.style.top = cfg.position === 'bottom' ? '' : '0'; wall.style.bottom = cfg.position === 'bottom' ? '0' : ''; v.relayout(); };
+      requestAnimationFrame(size);
+      lookViews.push(v);
+      card.onclick = async () => {
+        const patch = { ...p.config, workspaces: { ...C().workspaces, ...(p.config.workspaces || {}) }, tasks: { ...C().tasks, ...(p.config.tasks || {}) } };
+        Object.assign(C(), patch);
+        await api.barSet(patch);
+        if ($('#lookColors').checked && p.theme) await api.themeApply(p.theme);
+        B = await api.barGet();
+        renderBar();
+        toast(`${p.name} applied`);
+      };
+    }
   }
   function mountPreview() {
     const box = $('#barPrev');
@@ -142,13 +193,16 @@
         ${fld('Position', bseg('position', [['top', 'Top'], ['bottom', 'Bottom']]))}
         ${fld('Height', brange('height', 24, 56, 1, 'px'))}
         ${c.style !== 'full' ? fld('Edge gap', brange('gap', 0, 24, 1, 'px')) + fld('Roundness', brange('radius', 0, 28, 1, 'px')) : ''}
+        ${fld('Look', `<select data-bsel="look">${[['solid', 'Solid'], ['colorful', 'Colorful'], ['outline', 'Outline'], ['underline', 'Underline'], ['minimal', 'Minimal (no background)'], ['neon', 'Neon'], ['soft', 'Soft chips'], ['brutal', 'Brutalist'], ['gradient', 'Gradient'], ['mono', 'Monochrome']].map(([v, l]) => `<option value="${v}" ${c.look === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
         ${fld('Opacity', brange('opacity', 0, 100, 1, '%'))}
         ${fld('Frosted glass', bsw('glass'), 'Blurs your wallpaper behind the bar.')}
         ${fld('Outline', bsw('border'))}${fld('Shadow', bsw('shadow'))}${fld('Glow', bsw('glow'))}
       </div>
       <div class="group"><h5>Text</h5>
         ${fld('Font', `<select data-bsel="font">${fonts.map((f) => `<option ${f === c.font ? 'selected' : ''} style="font-family:'${esc(f)}'">${esc(f)}</option>`).join('')}</select>`)}
-        ${fld('Size', brange('fontSize', 10, 18, 0.5, 'px'))}
+        ${fld('Size', brange('fontSize', 8, 20, 0.5, 'px'))}
+        ${fld('Capitals', bsw('upper'))}
+        ${fld('Separators', bseg('sep', [['', 'None'], ['dot', '•'], ['bar', '|'], ['slash', '/'], ['diamond', '◆']]))}
       </div>
       <div class="group"><h5>Desktops</h5>
         ${fld('Show as', bseg('workspaces.style', [['numbers', '123'], ['dots', '•••'], ['roman', 'I·II'], ['kanji', '一二'], ['labels', 'Names']]))}
@@ -166,7 +220,6 @@
       <div class="group"><h5>Open apps</h5>${fld('Show names', bsw('tasks.labels'))}<p class="hint">Click an app to switch to it (again to minimize), middle-click to close it.</p></div>
       <div class="group"><h5>Behavior</h5>
         ${fld('Screens', bseg('displays', [['primary', 'Main screen'], ['all', 'All screens']]))}
-        ${fld('Hide taskbar', bsw('hideTaskbar'), 'Sets the Windows taskbar to auto-hide while the bar is on, and puts it back when you turn the bar off. Move your mouse to the bottom edge to reach it.')}
         ${fld('Shortcuts', bsw('shortcuts'), 'Ctrl+Alt+1…9 jumps to a desktop, Ctrl+Alt+T switches theme. Ctrl+Alt+B always shows or hides the bar.')}
       </div>
       <div class="group"><p class="hint">The bar reserves its own strip of the screen, so maximized windows stop right under it, and it hides itself when a game or video goes fullscreen.</p></div>`;
@@ -279,12 +332,67 @@
     $('#toWin').onclick = async () => { TH = await api.themeOpts({ windowsMode: !TH.opts.windowsMode }); renderThemeOpts(); };
     $$('[data-dth]', box).forEach((s) => s.addEventListener('change', async () => { TH = await api.themeDesktop(s.dataset.dth, s.value || null); }));
   }
+  // ---------------------------------------------------------------- Windows (beta) tab
+  let WM = null;
+  async function showWm() { WM = await api.wmGet(); renderWm(); }
+  function renderWm() {
+    const t = WM.tiler, l = WM.launcher;
+    const sw = (on, id) => `<button class="switch ${on ? 'on' : ''}" id="${id}"></button>`;
+    const segW = (id, val, opts) => `<div class="seg" id="${id}">${opts.map(([v, lb]) => `<button data-v="${v}" class="${String(val) === String(v) ? 'on' : ''}">${lb}</button>`).join('')}</div>`;
+    const keyRows = [['Ctrl+Alt+←↑↓→', 'Focus the window in that direction'], ['Ctrl+Alt+Shift+←↑↓→', 'Swap windows'], ['Drag a window onto another', 'Swap them'], ['Ctrl+Alt+F', 'Float / tile the active window'], ['Ctrl+Alt+L', 'Switch layout (dwindle / master)'], ['Ctrl+Alt+Q', 'Close the active window'], ['Ctrl+Alt+Enter', 'Open a terminal'], ['Ctrl+Alt+P', 'Pause / resume tiling'], ['Ctrl+Alt+1…9', 'Jump to a desktop (with the bar on)'], ['Maximize a window', 'It goes fullscreen; the rest stay tiled behind it']];
+    $('#wmMain').innerHTML = `
+      <div class="live-head" style="margin-bottom:10px"><div><h2>Tiling windows <small class="beta">beta</small></h2><p class="muted">Haven arranges your app windows side by side with gaps, like Hyprland, and animates them into place. New windows split the space; close one and the rest fill in.</p></div>${sw(t.enabled, 'wmOn')}</div>
+      <div class="wmdemo ${t.layout}"><i></i><i></i><i></i><i></i></div>
+      <div class="sec-h"><h4>Keyboard</h4></div>
+      <div class="keys">${keyRows.map(([k2, d]) => `<div><kbd>${esc(k2)}</kbd><span>${esc(d)}</span></div>`).join('')}</div>
+      <div class="live-head" style="margin:22px 0 10px"><div><h2>App launcher</h2><p class="muted">A quick search for your apps, games and files that pops up in the middle of the screen.</p></div>${sw(l.enabled, 'lnOn')}</div>
+      <div class="group" style="border:0;padding-top:0">
+        <div class="f"><label>Win + S</label><div class="row">${sw(l.winS, 'lnWin')}<span class="muted" style="font-size:12px">Opens Haven's launcher instead of Windows search</span></div></div>
+        <div class="f"><label>Alt + Space</label><div class="row">${sw(l.altSpace, 'lnAlt')}</div></div>
+        <button class="btn" id="lnTry">Try it</button>
+      </div>`;
+    $('#wmOpts').innerHTML = `
+      <div class="group"><h5>Layout</h5>
+        ${fld('Style', segW('wmLayout', t.layout, [['dwindle', 'Dwindle'], ['master', 'Master']]))}
+        ${t.layout === 'master' ? fld('Main width', `<input type="range" id="wmMaster" min="30" max="75" value="${t.master}" style="--p:${((t.master - 30) / 45) * 100}%"><span class="val">${t.master}%</span>`) : ''}
+        ${fld('Inner gaps', `<input type="range" id="wmInner" min="0" max="30" value="${t.inner}" style="--p:${(t.inner / 30) * 100}%"><span class="val">${t.inner}px</span>`)}
+        ${fld('Outer gaps', `<input type="range" id="wmOuter" min="0" max="40" value="${t.outer}" style="--p:${(t.outer / 40) * 100}%"><span class="val">${t.outer}px</span>`)}
+      </div>
+      <div class="group"><h5>Feel</h5>
+        ${fld('Animations', segW('wmAnim', t.animate ? t.speed : 'off', [['smooth', 'Smooth'], ['fast', 'Fast'], ['off', 'Off']]))}
+        ${fld('Active border', sw(t.border, 'wmBorder'), 'Colors the focused window\'s edge with your theme accent.')}
+      </div>
+      <div class="group"><h5>Leave these alone</h5>
+        <input type="text" id="wmIgnore" value="${esc(t.ignore)}" spellcheck="false" style="width:100%">
+        <p class="hint">App names (comma separated) that should never be tiled. Dialogs, pop-ups and small fixed-size windows always float.</p>
+      </div>
+      <div class="group"><p class="hint">Beta: some apps resist being resized, and full-screen games are left alone. Turn it off any time here, from the tray menu, or pause it with Ctrl+Alt+P. It only does work when a window opens, closes or moves.</p></div>`;
+    const setT = async (p) => { WM.tiler = await api.wmSet('tiler', p); renderWm(); };
+    const setL = async (p) => { WM.launcher = await api.wmSet('launcher', p); renderWm(); };
+    $('#wmOn').onclick = () => setT({ enabled: !t.enabled });
+    $('#lnOn').onclick = () => setL({ enabled: !l.enabled });
+    $('#lnWin').onclick = () => setL({ winS: !l.winS });
+    $('#lnAlt').onclick = () => setL({ altSpace: !l.altSpace });
+    $('#lnTry').onclick = () => toast(l.enabled ? (l.winS ? 'Press Win + S' : 'Press Alt + Space') : 'Turn the launcher on first');
+    $('#wmBorder').onclick = () => setT({ border: !t.border });
+    $$('#wmLayout button').forEach((b) => (b.onclick = () => setT({ layout: b.dataset.v })));
+    $$('#wmAnim button').forEach((b) => (b.onclick = () => setT(b.dataset.v === 'off' ? { animate: false } : { animate: true, speed: b.dataset.v })));
+    for (const [id, key, unit] of [['wmInner', 'inner', 'px'], ['wmOuter', 'outer', 'px'], ['wmMaster', 'master', '%']]) {
+      const r = $('#' + id);
+      if (!r) continue;
+      r.addEventListener('input', () => { r.style.setProperty('--p', ((r.value - r.min) / (r.max - r.min)) * 100 + '%'); r.nextElementSibling.textContent = r.value + unit; });
+      r.addEventListener('change', () => setT({ [key]: +r.value }));
+    }
+    $('#wmIgnore').addEventListener('change', (e) => setT({ ignore: e.target.value }));
+  }
+
   api.on('theme:changed', (l) => { TH = l; if (!$('#pThemes').hidden) renderThemes(); });
 
   window.BarEditor = {
-    show(tab) { if (tab === 'bar') showBar(); if (tab === 'themes') showThemes(); },
+    show(tab) { return tab === 'bar' ? showBar() : tab === 'themes' ? showThemes() : tab === 'wm' ? showWm() : null; },
   };
   // studio-editor.js may have picked this tab before this script loaded.
   if (!document.getElementById('pBar').hidden) showBar();
   if (!document.getElementById('pThemes').hidden) showThemes();
+  if (!document.getElementById('pWm').hidden) showWm();
 })();

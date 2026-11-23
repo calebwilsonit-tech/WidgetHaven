@@ -14,7 +14,9 @@ const liveMod = require('./live');
 const studioMod = require('./studio-main');
 const barMod = require('./bar');
 const themesMod = require('./themes');
-let studio = null, live = null, bar = null, themes = null;
+const tilerMod = require('./tiler');
+const launcherMod = require('./launcher');
+let studio = null, live = null, bar = null, themes = null, tiler = null, launcher = null;
 let wallpaper = null;
 
 app.setAppUserModelId('app.haven.organizer');
@@ -69,6 +71,9 @@ const DEFAULT_SETTINGS = {
   themeOpts: { windowsMode: false },
   desktopThemes: {},       // virtual desktop id -> theme id
   barTaskbar: {},          // remembers the taskbar's auto-hide state while the bar manages it
+  hubSolid: true,          // the main Haven window stays opaque even when widgets are see-through
+  tiler: { ...tilerMod.DEFAULTS },
+  launcher: { ...launcherMod.DEFAULTS },
 };
 
 function loadStore() {
@@ -469,7 +474,7 @@ function createWidgetWindow(rec) {
   });
   w.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { widget: rec.id } });
   w.once('ready-to-show', () => { w.showInactive(); desktop.pin(w, true); lockWin(w); });
-  const persist = () => { const r = store.widgets.find((x) => x.id === rec.id); if (r && !w.isDestroyed()) { r.bounds = w.getBounds(); save(); } };
+  const persist = () => { const r = store.widgets.find((x) => x.id === rec.id); if (r && !w.isDestroyed() && !w.__refit) { r.bounds = w.getBounds(); rememberFrac(r, r.bounds); save(); } };
   w.on('moved', persist);
   w.on('resized', persist);
   attachSnapping(w);
@@ -783,9 +788,12 @@ function buildTray() {
     { type: 'separator' },
     { label: 'Haven Studio…', click: () => studio.openEditor({ tab: 'widgets' }) },
     { label: 'Haven Bar   (Ctrl+Alt+B)', type: 'checkbox', checked: !!(store.settings.bar && store.settings.bar.enabled), click: (m) => bar.set({ enabled: m.checked }) },
+    { label: 'Tile windows (beta)   Ctrl+Alt+P pauses', type: 'checkbox', checked: !!(tiler && tiler.cfg().enabled), click: (m) => tiler.set({ enabled: m.checked }) },
+    { label: 'App launcher (Win+S)', type: 'checkbox', checked: !!(launcher && launcher.cfg().enabled), click: (m) => launcher.set({ enabled: m.checked }) },
     { label: 'Theme', submenu: [...themes.all().map((t) => ({ label: t.name, type: 'radio', checked: t.id === themes.currentId(), click: () => themes.apply(t.id) })), { type: 'separator' }, { label: 'Themes…', click: () => studio.openEditor({ tab: 'themes' }) }] },
     { label: 'Live wallpaper', type: 'checkbox', checked: !!(store.settings.live && store.settings.live.enabled), click: (m) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: m.checked }; save(); live.update(); studio.notifyEditor(); } },
     studio.hasClickThrough() ? { label: 'Make floating widgets clickable again', click: () => studio.stopClickThrough() } : null,
+    store.settings.bar && store.settings.bar.enabled && bar.cfg().taskbar !== 'show' ? { label: 'Show the Windows taskbar again', click: () => bar.set({ taskbar: 'show' }) } : null,
     { type: 'separator' },
     { label: 'Split into widgets', click: () => splitIntoWidgets() },
     { label: 'Merge widgets back', enabled: store.widgets.length > 0, click: () => mergeWidgets() },
@@ -1036,7 +1044,7 @@ ipcMain.on('win:quit', () => { quitting = true; app.quit(); });
 
 // ---------------------------------------------------------------- lifecycle
 app.on('second-instance', () => toggleWindow(true));
-app.on('before-quit', () => { quitting = true; if (live) live.stop(); if (bar) bar.stop(); saveNow(); });
+app.on('before-quit', () => { quitting = true; if (live) live.stop(); if (bar) bar.stop(); if (tiler) tiler.stop(); if (launcher) launcher.stop(); saveNow(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => {});
 
@@ -1053,18 +1061,32 @@ app.whenReady().then(async () => {
     store, save, desktop, webPrefs: WEB_PREFS, makeLogo, themes, log: console.warn,
     wallpaperURL: () => studio.wallpaperURL(), customFonts: () => studio.fontsList(),
     launchItem: (id) => launch(id), toggleHub: () => toggleWindow(), openStudio: (tab) => studio.openEditor({ tab }),
+    setLive: (on) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: on }; save(); live.update(); studio.notifyEditor(); },
     favorites: () => store.favorites.map((id) => library.get(id)).filter(Boolean).map((it) => ({ id: it.id, name: it.customName || it.name, icon: 'haven://icon/' + encodeURIComponent(it.id) + '?v=hd' })),
   });
   screen.on('display-metrics-changed', () => {
+    refitToWorkAreas();
     if (win && isWidget() && !boundsVisible(win.getBounds())) win.setBounds(defaultBounds(true));
     setTimeout(() => studio.replaceAll(), 300);
   });
   buildLibrary();
+  refitToWorkAreas(); // the usable area may have changed while Haven was closed (e.g. the bar was on)
   createWindow();
   for (const rec of store.widgets) createWidgetWindow(rec);
+  tiler = tilerMod.setup({ store, save, palette: () => themes.palette(), log: console.warn });
+  launcher = launcherMod.setup({
+    store, save, webPrefs: WEB_PREFS, makeLogo, palette: () => themes.palette(), getFont: () => bar.cfg().font, log: console.warn,
+    focusWin: (w) => desktop.focusWindow(desktop.hwndOf(w)),
+    launchItem: (id) => launch(id),
+    items: () => publicItems().filter((it) => !it.hidden).map((it) => ({ id: it.id, name: it.name, type: it.type, launches: it.launches || 0, lastLaunched: it.lastLaunched || 0, icon: 'haven://icon/' + encodeURIComponent(it.id) + '?v=hd' })),
+  });
+  ipcMain.handle('wm:get', () => ({ tiler: tiler.cfg(), launcher: launcher.cfg(), keys: tiler.KEYS, available: tiler.available() }));
+  ipcMain.handle('wm:set', (_, which, patch) => (which === 'launcher' ? launcher.set(patch || {}) : tiler.set(patch || {})));
   studio.createAll();
   live.start();
   bar.start();
+  tiler.apply();
+  launcher.apply();
   ensureOverlay(); // preload the guide layer so the first drag draws instantly
   buildTray();
   applyHotkey(store.settings.hotkey);
@@ -1072,6 +1094,38 @@ app.whenReady().then(async () => {
   await rescan();
   if (bar) bar.refresh();
 });
+
+// When a screen's usable area changes (the Haven Bar or the taskbar reserves or frees a strip), Windows
+// shoves windows out of the way without resizing them, so tiles end up overlapping. Instead, scale every
+// widget's position and size from the old usable area to the new one, keeping the layout intact.
+function refitToWorkAreas() {
+  // Each widget remembers where it sits as a share of its screen's usable area (rec.frac), set whenever
+  // you move or resize it. When the usable area changes, it's placed from that share, so repeated
+  // changes never drift and tiles never end up overlapping.
+  const displays = screen.getAllDisplays();
+  const dispOf = (b) => displays.find((d) => { const cx = b.x + b.width / 2, cy = b.y + b.height / 2; return cx >= d.bounds.x && cx < d.bounds.x + d.bounds.width && cy >= d.bounds.y && cy < d.bounds.y + d.bounds.height; });
+  let changed = false;
+  const place = (rec, w, isHub) => {
+    const b = rec.bounds;
+    if (!b) return;
+    const d = (rec.fracDisplay && displays.find((x) => x.id === rec.fracDisplay)) || dispOf(b);
+    if (!d) return;
+    if (!rec.frac) { rememberFrac(rec, b); changed = true; return; }
+    const a = d.workArea, f = rec.frac;
+    const nb = { x: Math.round(a.x + f.x * a.width), y: Math.round(a.y + f.y * a.height), width: Math.max(260, Math.round(f.w * a.width)), height: Math.max(200, Math.round(f.h * a.height)) };
+    if (nb.x === b.x && nb.y === b.y && nb.width === b.width && nb.height === b.height) return;
+    rec.bounds = nb; changed = true;
+    if (w && !w.isDestroyed() && !(isHub && (!isWidget() || w.isMaximized()))) { w.__refit = true; w.setBounds(nb); w.__refit = false; }
+  };
+  for (const rec of store.widgets) place(rec, widgetWins.get(rec.id));
+  if (changed) save();
+}
+function rememberFrac(rec, b) {
+  const d = screen.getDisplayMatching(b);
+  const a = d.workArea;
+  rec.frac = { x: (b.x - a.x) / a.width, y: (b.y - a.y) / a.height, w: b.width / a.width, h: b.height / a.height };
+  rec.fracDisplay = d.id;
+}
 
 // A theme was picked: recolor everything Haven draws.
 function themeApplied(prev) {
@@ -1082,5 +1136,6 @@ function themeApplied(prev) {
   if (studio) { studio.pushAll(); studio.notifyEditor(); }
   if (live) live.update();
   if (bar) bar.refresh();
+  if (tiler) tiler.retile();
   send('theme:changed', themes.list());
 }

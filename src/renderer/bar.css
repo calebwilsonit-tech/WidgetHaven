@@ -131,3 +131,91 @@
 .hb-bat { font-variant-numeric: tabular-nums; }
 
 .hb-power:hover { color: var(--red); }
+
+/* --- roomier hit areas (v1.3) ---------------------------------------------------------- */
+.hb-btn { height: calc(var(--h) - 6px); padding: 0 12px; gap: 7px; }
+.hb[data-style="islands"] .hb-mod { padding: 0 3px; }
+.hb[data-style="zones"] .hb-z, .hb[data-style="floating"] .hb-bar { gap: 4px; }
+.hb-tasks { gap: 3px; padding: 0 3px; }
+.hb-tasks .t { height: calc(var(--h) - 6px); min-width: calc(var(--h) + 2px); padding: 0 9px; }
+.hb-ws { gap: 5px; padding: 0 6px; }
+.hb-ws .w { padding: 0 9px; min-width: calc(var(--h) - 8px); height: calc(var(--h) - 12px); }
+.hb-ws .w.on { min-width: calc((var(--h) - 8px) * 1.9); }
+.hb-row { gap: 12px; }
+.hb-clock { padding: 0 14px; }
+.m-launcher .hb-btn { padding: 0 10px; }
+.hb-media:hover .mc { width: calc(var(--h) - 2px); padding: 0 8px; }
+.hb.upper .hb-clock span, .hb.upper .hb-win span, .hb.upper .hb-media .mt span, .hb.upper .hb-dim, .hb.upper .hb-btn > span { text-transform: uppercase; letter-spacing: .06em; }
+.hb-notify { position: relative; }
+.hb-notify .badge { position: absolute; top: 2px; right: 3px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 9px; font: 700 9.5px/15px system-ui, sans-serif; font-style: normal; text-align: center; background: var(--accent); color: var(--base); box-shadow: 0 0 0 2px rgb(var(--base-rgb)); }
+
+/* separators between modules (pills / floating / edge styles) */
+.hb[data-sep] .hb-z > .hb-mod:not(.blank) ~ .hb-mod:not(.blank)::before { content: ''; flex: none; margin: 0 4px; color: var(--subtext); opacity: .5; font-size: .9em; }
+.hb[data-sep="dot"] .hb-z > .hb-mod:not(.blank) ~ .hb-mod:not(.blank)::before { content: '•'; }
+.hb[data-sep="bar"] .hb-z > .hb-mod:not(.blank) ~ .hb-mod:not(.blank)::before { content: ''; width: 1px; height: 45%; background: currentColor; }
+.hb[data-sep="slash"] .hb-z > .hb-mod:not(.blank) ~ .hb-mod:not(.blank)::before { content: '/'; }
+.hb[data-sep="diamond"] .hb-z > .hb-mod:not(.blank) ~ .hb-mod:not(.blank)::before { content: '◆'; font-size: .6em; color: var(--accent); opacity: .8; }
+.hb[data-sep=""] .hb-mod::before { display: none; }
+.hb[data-style="islands"] .hb-mod::before { display: none !important; }
+
+/* --- looks --------------------------------------------------------------------------- */
+/* colorful: every island in its own palette color (classic waybar) */
+.hb[data-look="colorful"] .hb-mod { --mc: var(--accent); }
+.hb[data-look="colorful"] .hb-z > .hb-mod:nth-child(6n+2) { --mc: var(--accent2); }
+.hb[data-look="colorful"] .hb-z > .hb-mod:nth-child(6n+3) { --mc: var(--green); }
+.hb[data-look="colorful"] .hb-z > .hb-mod:nth-child(6n+4) { --mc: var(--yellow); }
+.hb[data-look="colorful"] .hb-z > .hb-mod:nth-child(6n+5) { --mc: var(--red); }
+.hb[data-look="colorful"] .hb-z > .hb-mod:nth-child(6n+6) { --mc: var(--subtext); }
+.hb[data-look="colorful"] .hb-mod.surf { background: color-mix(in srgb, var(--mc) calc(var(--op) * 100%), transparent); color: var(--base); }
+.hb[data-look="colorful"] .hb-mod.surf::before { display: none; }
+.hb[data-look="colorful"] .hb-mod.surf .ic.acc, .hb[data-look="colorful"] .hb-mod.surf .hb-row .st .ic, .hb[data-look="colorful"] .hb-mod.surf .hb-clock span, .hb[data-look="colorful"] .hb-mod.surf .hb-win span, .hb[data-look="colorful"] .hb-mod.surf .hb-dim { color: var(--base); opacity: .85; }
+.hb[data-look="colorful"] .hb-mod.surf .hb-ws .w { color: var(--base); }
+.hb[data-look="colorful"] .hb-mod.surf .hb-ws .w.on { background: var(--base); color: var(--mc); }
+.hb[data-look="colorful"] .hb-mod.surf .hb-btn:hover, .hb[data-look="colorful"] .hb-mod.surf .hb-tasks .t:hover { background: rgb(var(--base-rgb) / .15); }
+.hb[data-look="colorful"] .hb-mod.surf .hb-tasks .t.on { background: rgb(var(--base-rgb) / .2); }
+.hb[data-look="colorful"] .hb-mod.surf .hb-tasks .t.on::after { background: var(--base); }
+.hb[data-look="colorful"] .hb-logo i { background: var(--base) !important; }
+
+/* outline: see-through with an accent border */
+.hb[data-look="outline"] .surf { background: rgb(var(--base-rgb) / calc(var(--op) * .45)) !important; box-shadow: inset 0 0 0 1.5px rgb(var(--accent-rgb) / .75) !important; }
+
+/* underline: no fill, an accent line under each part */
+.hb[data-look="underline"] .surf { background: rgb(var(--base-rgb) / calc(var(--op) * .35)) !important; border-radius: 4px !important; box-shadow: inset 0 -2px 0 var(--accent) !important; }
+.hb[data-look="underline"] .surf::before { display: none; }
+
+/* minimal: just text and icons over the wallpaper */
+.hb[data-look="minimal"] .surf { background: none !important; box-shadow: none !important; filter: none !important; }
+.hb[data-look="minimal"] .surf::before { display: none; }
+.hb[data-look="minimal"] { text-shadow: 0 1px 3px rgb(0 0 0 / .55); }
+.hb[data-look="minimal"] .ic { filter: drop-shadow(0 1px 2px rgb(0 0 0 / .5)); }
+
+/* neon: dark glass with glowing edges */
+.hb[data-look="neon"] .surf { background: rgb(var(--mantle-rgb) / var(--op)) !important; box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / .9), 0 0 14px rgb(var(--accent-rgb) / .45), inset 0 0 12px rgb(var(--accent-rgb) / .18) !important; }
+.hb[data-look="neon"] .ic.acc, .hb[data-look="neon"] .hb-clock b, .hb[data-look="neon"] .w.on { filter: drop-shadow(0 0 5px rgb(var(--accent-rgb) / .9)); }
+.hb[data-look="neon"] .hb-clock b { color: var(--accent); }
+.hb[data-look="neon"] .surf.hb-mod, .hb[data-look="neon"] .surf { overflow: visible; }
+
+/* soft: one surface with raised chips inside */
+.hb[data-look="soft"] .hb-mod .hb-btn, .hb[data-look="soft"] .hb-ws, .hb[data-look="soft"] .hb-tasks, .hb[data-look="soft"] .hb-win { background: rgb(var(--surface-rgb) / .7); border-radius: calc(var(--r) - 3px); box-shadow: inset 0 1px 0 rgb(255 255 255 / .06), 0 1px 2px rgb(0 0 0 / .15); }
+.hb[data-look="soft"] .hb-ws, .hb[data-look="soft"] .hb-tasks, .hb[data-look="soft"] .hb-win { height: calc(var(--h) - 6px); }
+.hb[data-look="soft"] .hb-mod { margin: 0 2px; }
+
+/* brutal: square, thick outline, hard offset shadow */
+.hb[data-look="brutal"] .surf { border-radius: 2px !important; background: rgb(var(--base-rgb)) !important; box-shadow: inset 0 0 0 2px var(--text) !important; filter: drop-shadow(3px 3px 0 var(--accent)) !important; overflow: visible; }
+.hb[data-look="brutal"] .surf::before { display: none; }
+.hb[data-look="brutal"] .hb-btn, .hb[data-look="brutal"] .hb-tasks .t, .hb[data-look="brutal"] .hb-ws .w { border-radius: 0; }
+.hb[data-look="brutal"] .hb-ws .w.on { background: var(--accent); }
+.hb[data-look="brutal"] { font-weight: 700; }
+
+/* gradient: accent-to-accent fill */
+.hb[data-look="gradient"] .surf { background: linear-gradient(120deg, rgb(var(--accent-rgb) / var(--op)), rgb(var(--accent2-rgb) / var(--op))) !important; color: var(--base); }
+.hb[data-look="gradient"] .surf::before { display: none; }
+.hb[data-look="gradient"] .surf .ic.acc, .hb[data-look="gradient"] .surf .hb-row .st .ic, .hb[data-look="gradient"] .surf .hb-clock span, .hb[data-look="gradient"] .surf .hb-win span, .hb[data-look="gradient"] .surf .hb-ws .w { color: var(--base); }
+.hb[data-look="gradient"] .surf .hb-ws .w.on { background: var(--base); color: var(--accent); }
+.hb[data-look="gradient"] .surf .hb-btn:hover, .hb[data-look="gradient"] .surf .hb-tasks .t:hover { background: rgb(var(--base-rgb) / .16); }
+.hb[data-look="gradient"] .hb-logo i { background: var(--base) !important; }
+
+/* mono: no accent color at all */
+.hb[data-look="mono"] { --accent: var(--text); --accent2: var(--subtext); --accent-rgb: var(--text-rgb); --accent2-rgb: var(--subtext-rgb); }
+.hb[data-look="mono"] .hb-ws .w.on { background: var(--text); color: var(--base); }
+.hb-notify .badge { position: static; box-shadow: none; margin-left: -2px; }

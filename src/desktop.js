@@ -377,6 +377,16 @@ function taskbarAutoHide(on) {
     return on;
   } catch { return null; }
 }
+// Show or hide every Windows taskbar (main + other screens).
+function showTaskbars(on) {
+  if (!user32 || !user32.ShowWindow) return;
+  try {
+    const list = [Number(user32.FindWindowW('Shell_TrayWnd', null))];
+    let h = 0;
+    for (let i = 0; i < 16; i++) { h = Number(user32.FindWindowExW(0, h, 'Shell_SecondaryTrayWnd', null)); if (!h) break; list.push(h); }
+    for (const t of list) if (t) user32.ShowWindow(t, on ? 8 /* SW_SHOWNA */ : 0 /* SW_HIDE */);
+  } catch {}
+}
 function setWallpaperFile(p) {
   if (!user32 || !user32.SystemParametersInfoW || !p) return false;
   try { return !!user32.SystemParametersInfoW(0x14, 0, Buffer.from(p + '\0', 'utf16le'), 3 /* update ini + broadcast */); } catch { return false; }
@@ -392,7 +402,7 @@ function broadcastThemeChange() {
 
 module.exports = {
   keyCombo, focusWindow, minimizeWindow, closeWindow, lockWorkstation, foregroundHwnd, setToolWindow,
-  appbarSet, appbarRemove, appbarRemoveAll, taskbarAutoHide, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
+  appbarSet, appbarRemove, appbarRemoveAll, taskbarAutoHide, showTaskbars, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
   pin, sendToBottom, allowForeground, keyDown, moveTo, watchWallpaper, readWallpaper, available: () => !!user32,
   attachToWallpaper, refreshWallpaper, foregroundState, isWindowAlive, hwndOf, wallpaperFile,
 };

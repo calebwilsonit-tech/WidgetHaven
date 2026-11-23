@@ -4,6 +4,7 @@ let payload = null;
 const view = HavenBar.mount(document.body, {
   action: (kind, arg) => api.barAction(kind, arg),
   menu: (where) => api.barMenu(where),
+  flyout: (kind, rect) => api.barFlyout(kind, rect),
   // The wallpaper fills this screen; the window sits at its top (or bottom) edge.
   frame: () => payload && { w: payload.display.bounds.width, h: payload.display.bounds.height, ox: payload.display.bounds.x - payload.display.win.x, oy: payload.display.bounds.y - payload.display.win.y },
 });

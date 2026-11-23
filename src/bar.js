@@ -1,6 +1,6 @@
 // Haven Bar (main process): a status bar that reserves its own strip of the screen (like the taskbar),
 // with desktop/workspace buttons, open apps, clock, now playing, system stats and quick buttons.
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, dialog, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -13,7 +13,10 @@ const DEFAULTS = {
   height: 34, gap: 8, radius: 12, opacity: 80, glass: true, border: true, shadow: true, glow: false,
   font: 'Space Grotesk', fontSize: 13,
   displays: 'primary',      // 'primary' | 'all'
-  hideTaskbar: false,
+  hideTaskbar: false,       // (old setting, replaced by taskbar)
+  taskbar: 'show',          // Windows taskbar while the bar is on: 'show' | 'autohide' | 'hidden'
+  look: 'solid',            // see LOOKS in bar.css
+  upper: false, sep: '',
   shortcuts: true,          // Ctrl+Alt+1…9 desktops, Ctrl+Alt+B bar, Ctrl+Alt+T next theme
   left: ['launcher', 'workspaces', 'tasks'],
   center: ['clock'],
@@ -51,6 +54,7 @@ function setup(d) {
   const S = () => store.settings;
   const cfg = () => {
     const b = { ...DEFAULTS, ...(S().bar || {}) };
+    if (!(S().bar || {}).taskbar && b.hideTaskbar) b.taskbar = 'autohide';
     for (const k of ['clock', 'workspaces', 'tasks', 'media', 'window']) b[k] = { ...DEFAULTS[k], ...((S().bar || {})[k] || {}) };
     for (const z of ZONES) b[z] = (Array.isArray(b[z]) ? b[z] : DEFAULTS[z]).filter((m) => MODULES.some(([id]) => id === m));
     return b;
@@ -76,7 +80,12 @@ function setup(d) {
       while ((i = helperBuf.indexOf('\n')) >= 0) {
         const line = helperBuf.slice(0, i).trim();
         helperBuf = helperBuf.slice(i + 1);
-        if (line && line !== lastLine) { lastLine = line; try { ingest(JSON.parse(line)); } catch {} }
+        if (!line) continue;
+        if (line.startsWith('{"reply"')) {
+          try { const o = JSON.parse(line); const ws = waiters[o.reply] || []; waiters[o.reply] = []; ws.forEach((f) => f(o.data)); } catch {}
+          continue;
+        }
+        if (line !== lastLine) { lastLine = line; try { ingest(JSON.parse(line)); } catch {} }
       }
     });
     helper.on('exit', () => {
@@ -89,6 +98,17 @@ function setup(d) {
     if (helper) { try { helper.stdin.end(); } catch {} const h = helper; setTimeout(() => { try { h.kill(); } catch {} }, 800); helper = null; }
   }
   const tell = (cmd) => { if (helper && helper.stdin.writable) helper.stdin.write(cmd + '\n'); };
+  const waiters = {};
+  function ask(cmd, key, ms = 6000) {
+    return new Promise((res) => {
+      if (!helper) return res(null);
+      let done = false;
+      const fin = (v) => { if (!done) { done = true; res(v); } };
+      (waiters[key] = waiters[key] || []).push(fin);
+      tell(cmd);
+      setTimeout(() => fin(null), ms);
+    });
+  }
 
   const me = process.pid;
   function ingest(s) {
@@ -98,6 +118,7 @@ function setup(d) {
       desktops: { list, current: s.desktops && s.desktops.current },
       volume: s.volume || null,
       media: s.media && s.media.title ? s.media : null,
+      notes: +s.notes || 0,
     };
     for (const w of sys.windows) if (w.exe && !icons.has(w.exe)) loadIcon(w.exe);
     const cur = sys.desktops.current;
@@ -213,7 +234,7 @@ function setup(d) {
     const winB = w && !w.isDestroyed() ? w.getBounds() : disp.bounds;
     return {
       config: cfg(), modules: MODULES, palette: themes.palette(), themeId: themes.currentId(),
-      themes: themes.all().map((t) => ({ id: t.id, name: t.name })),
+      themes: themes.all().map((t) => ({ id: t.id, name: t.name, palette: themes.palette(t.id) })),
       wallpaperURL: wallpaperURL(), display: { bounds: disp.bounds, win: winB, primary: disp.id === screen.getPrimaryDisplay().id },
       pins: favorites(), customFonts: customFonts ? customFonts() : [],
     };
@@ -230,7 +251,7 @@ function setup(d) {
       desktops: sys.desktops.list.map((x, i) => ({ id: x.id, name: x.name, index: i, current: x.id === cur, windows: occupied[x.id] || 0 })),
       tasks: here.map((w) => ({ h: w.h, title: w.t, exe: w.exe, icon: icons.get(w.exe) || '', active: !!w.fg, min: !!w.min, name: exeName(w.exe) })),
       active: fgw ? { title: fgw.t, name: exeName(fgw.exe), icon: icons.get(fgw.exe) || '' } : null,
-      volume: sys.volume, media: sys.media, stats,
+      volume: sys.volume, media: sys.media, stats, notes: sys.notes || 0,
     };
   }
   let pushTimer = null, lastState = '';
@@ -336,17 +357,27 @@ function setup(d) {
   }
   try { globalShortcut.register('Ctrl+Alt+B', () => set({ enabled: !cfg().enabled })); } catch {}
 
+  // The Windows taskbar while the bar is on: shown, auto-hidden, or fully hidden. Haven remembers how it
+  // was and always puts it back when the bar is turned off or Haven quits.
+  let tbTimer = null;
   function applyTaskbar() {
     const c = cfg();
-    const want = c.enabled && c.hideTaskbar;
+    const mode = c.enabled ? c.taskbar : 'show';
     const st = S().barTaskbar || {};
-    if (want && !st.managed) {
-      const was = desktop.taskbarAutoHide();
-      if (was === null) return;
-      S().barTaskbar = { managed: true, was };
+    clearInterval(tbTimer);
+    if (mode !== 'show') {
+      if (!st.managed) {
+        const was = desktop.taskbarAutoHide();
+        if (was === null) return;
+        S().barTaskbar = { managed: true, was };
+        save();
+      }
       desktop.taskbarAutoHide(true);
-      save();
-    } else if (!want && st.managed) {
+      desktop.showTaskbars(mode !== 'hidden');
+      // Explorer can bring it back (e.g. after the Start menu): keep it hidden.
+      if (mode === 'hidden') tbTimer = setInterval(() => desktop.showTaskbars(false), 1500);
+    } else if (st.managed) {
+      desktop.showTaskbars(true);
       desktop.taskbarAutoHide(!!st.was);
       S().barTaskbar = {};
       save();
@@ -373,10 +404,96 @@ function setup(d) {
     clearInterval(statTimer); clearInterval(netTimer); clearInterval(fsTimer);
     destroyAll();
     stopHelper();
+    clearInterval(tbTimer);
     const st = S().barTaskbar || {};
-    if (st.managed) { desktop.taskbarAutoHide(!!st.was); S().barTaskbar = {}; save(); }
+    if (st.managed) { desktop.showTaskbars(true); desktop.taskbarAutoHide(!!st.was); S().barTaskbar = {}; save(); }
+    if (fly && !fly.isDestroyed()) fly.destroy();
   }
   const GEOMETRY = ['enabled', 'position', 'style', 'height', 'gap', 'displays'];
+
+  // ------------------------------------------------------------ flyout panels (calendar, notifications, Wi-Fi…)
+  const FLY_W = { calendar: 340, notify: 380, network: 340, volume: 340, battery: 320, quick: 380, power: 260, system: 320, themes: 360 };
+  const PAD = 14; // transparent margin around the panel for its shadow
+  let fly = null, flyKind = null, flyAnchor = null, flyClosedAt = 0, flyClosedKind = null;
+  function ensureFly() {
+    if (fly && !fly.isDestroyed()) return fly;
+    fly = new BrowserWindow({
+      width: 380, height: 300, frame: false, show: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
+      skipTaskbar: true, resizable: false, minimizable: false, maximizable: false, fullscreenable: false, alwaysOnTop: true,
+      title: 'Haven panel', icon: makeLogo(64), webPreferences: { ...webPrefs, backgroundThrottling: false },
+    });
+    fly.loadFile(path.join(__dirname, 'renderer', 'flyout.html'));
+    fly.on('blur', () => hideFly());
+    fly.webContents.on('did-finish-load', () => { desktop.setToolWindow(fly); listeners.add(fly.webContents); });
+    return fly;
+  }
+  function hideFly() {
+    if (!fly || fly.isDestroyed() || !fly.isVisible()) return;
+    flyClosedAt = Date.now(); flyClosedKind = flyKind;
+    fly.webContents.send('flyout:close');
+    fly.hide();
+    flyKind = null;
+  }
+  function openFly(kind, rect, sender) {
+    if (fly && !fly.isDestroyed() && fly.isVisible() && flyKind === kind) return hideFly();
+    if (flyClosedKind === kind && Date.now() - flyClosedAt < 350) return; // that click is what closed it
+    const bw = BrowserWindow.fromWebContents(sender);
+    if (!bw) return;
+    const wb = bw.getBounds();
+    const c = cfg();
+    flyAnchor = { cx: wb.x + rect.x + rect.width / 2, top: c.position !== 'bottom', y: c.position === 'bottom' ? wb.y - 4 : wb.y + wb.height + 4, display: screen.getDisplayMatching(wb) };
+    flyKind = kind;
+    const f = ensureFly();
+    const send = () => f.webContents.send('flyout:open', { kind, ...configPayload(null), state: statePayload(), live: !!(S().live && S().live.enabled) });
+    if (f.webContents.isLoading()) f.webContents.once('did-finish-load', send); else send();
+  }
+  function placeFly(h) {
+    if (!fly || fly.isDestroyed() || !flyAnchor || !flyKind) return;
+    const W = (FLY_W[flyKind] || 360) + PAD * 2, H = Math.min(Math.round(h) + PAD * 2, flyAnchor.display.workArea.height - 10);
+    const wa = flyAnchor.display.workArea;
+    const x = Math.round(Math.max(wa.x + 4 - PAD, Math.min(flyAnchor.cx - W / 2, wa.x + wa.width - W + PAD - 4)));
+    const y = Math.round(flyAnchor.top ? flyAnchor.y - PAD + 4 : flyAnchor.y - H + PAD - 4);
+    fly.setBounds({ x, y, width: W, height: H });
+    if (!fly.isVisible()) { fly.show(); fly.setAlwaysOnTop(true, 'pop-up-menu'); fly.focus(); desktop.focusWindow(desktop.hwndOf(fly)); }
+  }
+  ipcMain.handle('bar:flyout', (e, kind, rect) => openFly(kind, rect || { x: 0, y: 0, width: 0, height: 0 }, e.sender));
+  ipcMain.on('flyout:size', (_, h) => placeFly(h));
+  ipcMain.on('flyout:close', () => hideFly());
+  ipcMain.handle('flyout:ask', (_, what) => {
+    if (what === 'notes') return ask('notes', 'notes');
+    if (what === 'net') return ask('net', 'net', 9000);
+    if (what === 'bright') return ask('bright', 'bright');
+    if (what === 'procs') return ask('procs', 'procs');
+    if (what === 'uptime') return os.uptime();
+    return null;
+  });
+  ipcMain.handle('flyout:do', async (e, kind, arg) => {
+    switch (kind) {
+      case 'noteRemove': return ask('noteRemove ' + (+arg), 'notes');
+      case 'noteClear': return ask('noteClear', 'notes');
+      case 'bright': tell('setBright ' + Math.round(Math.max(0, Math.min(100, +arg)))); return true;
+      case 'wifiConnect': return new Promise((r) => execFile('netsh.exe', ['wlan', 'connect', 'name=' + String(arg)], { windowsHide: true }, (err, out) => r(err ? String(out || err.message) : 'ok')));
+      case 'wifiDisconnect': return new Promise((r) => execFile('netsh.exe', ['wlan', 'disconnect'], { windowsHide: true }, () => r('ok')));
+      case 'open': {
+        hideFly();
+        const a = String(arg || '');
+        if (/^(ms-settings:|ms-screenclip:|ms-actioncenter:)/.test(a)) return shell.openExternal(a);
+        if (a === 'taskmgr') return execFile('taskmgr.exe', [], { windowsHide: false }, () => {});
+        if (a === 'explorer') return execFile('explorer.exe', [], () => {});
+        return;
+      }
+      case 'powerNow': {
+        hideFly();
+        if (arg === 'lock' || arg === 'sleep') return power(arg);
+        const flag = { restart: ['/r', '/t', '0'], shutdown: ['/s', '/t', '0'], signout: ['/l'] }[arg];
+        if (flag) execFile('shutdown.exe', flag, { windowsHide: true });
+        return;
+      }
+      case 'live': return d.setLive && d.setLive(!!arg);
+      case 'bar': return set(arg || {});
+      default: if (['settings', 'themes', 'launcher', 'notify', 'quick', 'tray'].includes(kind)) hideFly(); return action(kind, arg, e.sender);
+    }
+  });
   function set(patch) {
     const prev = cfg();
     S().bar = { ...prev, ...patch };
@@ -407,7 +524,7 @@ function setup(d) {
       { label: 'Theme', submenu: [...themes.all().map((t) => ({ label: t.name, type: 'radio', checked: t.id === cur, click: () => themes.apply(t.id) })), { type: 'separator' }, { label: 'Manage themes…', click: () => openStudio('themes') }] },
       { label: 'Position', submenu: [['top', 'Top'], ['bottom', 'Bottom']].map(([v, l]) => ({ label: l, type: 'radio', checked: c.position === v, click: () => set({ position: v }) })) },
       { label: 'Style', submenu: [['islands', 'Islands'], ['zones', 'Three pills'], ['floating', 'Floating bar'], ['full', 'Edge to edge']].map(([v, l]) => ({ label: l, type: 'radio', checked: c.style === v, click: () => set({ style: v }) })) },
-      { label: 'Hide the Windows taskbar', type: 'checkbox', checked: !!c.hideTaskbar, click: (m) => set({ hideTaskbar: m.checked }) },
+      { label: 'Windows taskbar', submenu: [['show', 'Show it'], ['autohide', 'Auto-hide (shows at the screen edge)'], ['hidden', 'Hide it completely']].map(([v, l]) => ({ label: l, type: 'radio', checked: c.taskbar === v, click: () => set({ taskbar: v }) })) },
       { type: 'separator' },
       { label: 'Turn off the bar   (Ctrl+Alt+B)', click: () => set({ enabled: false }) },
     ];

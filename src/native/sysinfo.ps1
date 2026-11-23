@@ -1,6 +1,7 @@
 # Haven Bar helper: prints one JSON line per tick with open windows (+ which virtual desktop each is on),
 # the virtual desktop list, master volume and what's playing. Reads commands on stdin; exits when it closes.
 $ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -173,6 +174,41 @@ function Invoke-Media($what) {
   } catch {}
 }
 
+# Windows notifications (the same ones as the notification center).
+$script:notes = $null
+try {
+  $null = [Windows.UI.Notifications.Management.UserNotificationListener, Windows.UI.Notifications, ContentType = WindowsRuntime]
+  $l = [Windows.UI.Notifications.Management.UserNotificationListener]::Current
+  if ($l.GetAccessStatus().ToString() -eq 'Allowed') { $script:notes = $l }
+} catch {}
+$script:noteType = [System.Collections.Generic.IReadOnlyList[Windows.UI.Notifications.UserNotification]]
+function Get-Notes {
+  if (-not $script:notes) { return @() }
+  try { $n = Await ($script:notes.GetNotificationsAsync([Windows.UI.Notifications.NotificationKinds]::Toast)) $script:noteType } catch { return @() }
+  if (-not $n) { return @() }
+  $list = foreach ($x in $n) {
+    $texts = @()
+    try {
+      $b = $x.Notification.Visual.GetBinding([Windows.UI.Notifications.KnownNotificationBindings]::ToastGeneric)
+      if ($b) { $texts = @($b.GetTextElements() | % { $_.Text }) }
+    } catch {}
+    $app = ''; try { $app = $x.AppInfo.DisplayInfo.DisplayName } catch {}
+    @{ id = $x.Id; app = ("$app" -replace '[\x00-\x1f]', ' '); title = ("$($texts | Select-Object -First 1)" -replace '[\x00-\x1f]', ' '); body = ((($texts | Select-Object -Skip 1) -join ' ') -replace '[\x00-\x1f]', ' '); time = $x.CreationTime.ToUnixTimeMilliseconds() }
+  }
+  @($list)
+}
+function Get-NoteCount { if (-not $script:notes) { return 0 }; try { (Await ($script:notes.GetNotificationsAsync([Windows.UI.Notifications.NotificationKinds]::Toast)) $script:noteType).Count } catch { 0 } }
+
+function Reply($what, $data) { $out.WriteLine('{"reply":"' + $what + '","data":' + $(if ($data -eq $null) { 'null' } else { ConvertTo-Json $data -Compress -Depth 5 }) + '}'); $out.Flush() }
+function Get-Brightness { try { [int](Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction Stop | Select-Object -First 1).CurrentBrightness } catch { -1 } }
+function Get-NetInfo {
+  $cur = @(Get-NetConnectionProfile -ErrorAction SilentlyContinue | % { @{ name = "$($_.Name)"; alias = "$($_.InterfaceAlias)"; internet = ("$($_.IPv4Connectivity)" -eq 'Internet') } })
+  $saved = @((netsh wlan show profiles) -match ':\s' | % { ($_ -split ':', 2)[1].Trim() } | ? { $_ })
+  $ip = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | ? { $_.IPAddress -notmatch '^(127|169\.254)' } | % { "$($_.InterfaceAlias): $($_.IPAddress)" })
+  @{ current = $cur; saved = $saved; ip = $ip }
+}
+function Get-Procs { @(Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 6 | % { @{ name = "$($_.ProcessName)"; mb = [math]::Round($_.WorkingSet64 / 1MB) } }) }
+
 # Commands arrive on stdin (one per line) and are read on a background thread.
 $queue = [System.Collections.Concurrent.ConcurrentQueue[string]]::new()
 $rs = [runspacefactory]::CreateRunspace(); $rs.Open(); $rs.SessionStateProxy.SetVariable('q', $queue)
@@ -192,11 +228,19 @@ while ($true) {
       'mute' { [HavenSys]::SetMute($a[1] -eq '1') }
       'move' { [HavenSys]::MoveToDesktop([long]$a[1], $a[2]) }
       'media' { Invoke-Media $a[1]; Start-Sleep -Milliseconds 250; $tick = 0 }
+      'notes' { Reply 'notes' (Get-Notes) }
+      'noteRemove' { try { $script:notes.RemoveNotification([uint32]$a[1]) } catch {}; Reply 'notes' (Get-Notes); $tick = 0 }
+      'noteClear' { try { $script:notes.ClearNotifications() } catch {}; Reply 'notes' (Get-Notes); $tick = 0 }
+      'bright' { Reply 'bright' (Get-Brightness) }
+      'setBright' { try { Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 1; Brightness = [byte]$a[1] } | Out-Null } catch {} }
+      'net' { Reply 'net' (Get-NetInfo) }
+      'procs' { Reply 'procs' (Get-Procs) }
     }
     $fast = $true
   }
   if ($tick % 3 -eq 0) { $lastMedia = Get-Media }
-  $line = '{"windows":' + [HavenSys]::Windows() + ',"desktops":' + (ConvertTo-Json (Get-Desktops) -Compress -Depth 4) + ',"volume":' + [HavenSys]::Volume() + ',"media":' + $(if ($lastMedia) { ConvertTo-Json $lastMedia -Compress } else { 'null' }) + '}'
+  if ($tick % 4 -eq 0) { $noteCount = Get-NoteCount }
+  $line = '{"windows":' + [HavenSys]::Windows() + ',"desktops":' + (ConvertTo-Json (Get-Desktops) -Compress -Depth 4) + ',"volume":' + [HavenSys]::Volume() + ',"notes":' + [int]$noteCount + ',"media":' + $(if ($lastMedia) { ConvertTo-Json $lastMedia -Compress } else { 'null' }) + '}'
   $out.WriteLine($line); $out.Flush()
   $tick++
   for ($i = 0; $i -lt 10 -and $queue.IsEmpty; $i++) { Start-Sleep -Milliseconds 60 }

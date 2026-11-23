@@ -65,9 +65,10 @@ function setTab(t) {
   $('#pLive').hidden = t !== 'live';
   $('#pBar').hidden = t !== 'bar';
   $('#pThemes').hidden = t !== 'themes';
+  $('#pWm').hidden = t !== 'wm';
   if (t === 'widgets') { renderLeft(); renderStage(); renderInspector(); } else stopStage();
   if (t === 'live') renderLive();
-  if (t === 'bar' || t === 'themes') window.BarEditor && window.BarEditor.show(t);
+  if (t === 'bar' || t === 'themes' || t === 'wm') window.BarEditor && window.BarEditor.show(t);
   if (t !== 'live') stopLivePreviews();
 }
 

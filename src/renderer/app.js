@@ -728,6 +728,7 @@ function openSettings(tab) {
       + row(`Match accent to wallpaper${wallChips}`, w ? 'Colors update automatically whenever your wallpaper changes' : "Couldn't read your wallpaper — using your custom accent", `<button class="switch ${!custom ? 'on' : ''}" data-accentmode></button>`)
       + row('Custom accent', custom ? '' : 'Picking one turns off wallpaper matching', `<div class="swatches">${ACCENTS.map((c) => `<button data-accent="${c}" class="${custom && c === s.accent ? 'on' : ''}" style="background:${c}"></button>`).join('')}<input type="color" id="accentCustom" value="${esc(s.accent)}" title="Custom color"></div>`)
       + row('Transparency', `Opacity ${s.opacity ?? 72}% · ${s.glass ? 'frosted blur' : 'clear, no blur'} — widgets can override this`, `<button class="btn" id="openTransparency">Adjust…</button>`)
+      + row('Solid Haven window', 'Keeps the main Haven window opaque, even when your desktop widgets are see-through', sw('hubSolid', s.hubSolid !== false))
       + row('Tile size', '', `<input type="range" min="64" max="140" step="4" value="${s.tileSize}" id="tileSize">`);
   } else if (settingsTab === 'widgets') {
     const list = S.widgets;
@@ -1242,7 +1243,8 @@ function applyTheme() {
     S.plateL = hexLum(pc);
   } else { root.style.removeProperty('--pc'); S.plateL = null; }
   document.body.classList.toggle('custom-plate', !!pc);
-  const opacity = pick('opacity', 72) / 100;
+  // The main Haven window can stay solid while desktop widgets are see-through.
+  const opacity = !IS_WIDGET && !IS_PANEL && s.hubSolid !== false ? 1 : pick('opacity', 72) / 100;
   root.style.setProperty('--tile', pick('tileSize', 96) + 'px');
   root.style.setProperty('--bg-a', String(opacity));
   document.body.classList.toggle('glass', !!pick('glass', true) && !!window.haven);
