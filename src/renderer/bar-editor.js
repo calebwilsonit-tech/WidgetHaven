@@ -383,8 +383,8 @@
         ${fld('Focus follows mouse', sw(t.followMouse !== false, 'wmFollow'), 'Rest the pointer on a tiled window to switch to it, like Hyprland.')}
       </div>
       <div class="group"><h5>Always float</h5>
-        <input type="text" id="wmFloat" value="${esc(t.floatApps ?? 'steamwebhelper, Steam')}" spellcheck="false" style="width:100%">
-        <p class="hint">These open centered on top and the rest tile around them. Good for apps like Steam that won't shrink below their own minimum size. Haven also floats any window that refuses to fit its slot.</p>
+        <input type="text" id="wmFloat" value="${esc(t.floatApps || '')}" placeholder="e.g. Spotify, Calculator" spellcheck="false" style="width:100%">
+        <p class="hint">These open centered on top and the rest tile around them. Haven also floats any window that can't shrink to fit its tile (some apps have a minimum size).</p>
       </div>
       <div class="group"><h5>Leave these alone</h5>
         <input type="text" id="wmIgnore" value="${esc(t.ignore)}" spellcheck="false" style="width:100%">

@@ -13,7 +13,7 @@ const DEFAULTS = {
   animate: true, speed: 'smooth', // 'fast' | 'smooth'
   border: true,           // accent border on the active window (Windows 11)
   ignore: 'Taskmgr.exe, Calculator, PowerToys',
-  floatApps: 'steamwebhelper, Steam', // open floating (centered); the rest tile around them
+  floatApps: '',           // apps that always open floating (centered); the rest tile around them
   followMouse: true,      // hovering a tiled window focuses it (Hyprland's default)
 };
 const SKIP_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd', '#32770', 'Windows.UI.Core.CoreWindow',
@@ -175,7 +175,10 @@ function setup({ store, save, palette, log }) {
     // Maximized windows join the layout. Maximizing one while tiling runs puts it in focus mode instead
     // (it fills the tiled area, like Hyprland's fake fullscreen); Ctrl+Alt+Z brings the layout back.
     const fg = Number(k.GetForegroundWindow());
-    for (const h of wins) if (k.IsZoomed(h)) { if (settled && h === fg) focusWin = h; k.ShowWindow(h, 9 /* SW_RESTORE */); }
+    // The maximize button toggles focus mode: maximize to fill the tiled area, press it again to go back.
+    for (const h of wins) if (k.IsZoomed(h)) { if (settled && h === fg) focusWin = focusWin === h ? 0 : h; k.ShowWindow(h, 9 /* SW_RESTORE */); }
+    // A new window opening ends focus mode, so it never lands hidden under (or on top of) the focused one.
+    if (focusWin && wins.some((h) => !known.has(h) && !floating.has(h))) focusWin = 0;
     settled = true;
     for (const h of toCenter.splice(0)) centerFloat(h);
     if (focusWin && !wins.includes(focusWin)) focusWin = 0;
@@ -321,7 +324,10 @@ function setup({ store, save, palette, log }) {
     if (ev === 0x800B) { if (slots.has(h)) heldBack(h); return; }             // a tiled window moved or resized
     if (ev === 0x000A) { if (tiledNow.has(h)) dragging = h; return; }          // move/resize started
     if (ev === 0x000B) { if (dragging) { const d = dragging; dragging = 0; dropped(d); } return; } // ended
-    if (ev === 0x0003) { borders(); return; }                                  // focus changed
+    if (ev === 0x0003) {                                                       // focus changed
+      if (focusWin && h !== focusWin && tiledNow.has(h)) { focusWin = 0; soon(10); }
+      borders(); return;
+    }
     soon(ev === 0x8002 || ev === 0x8018 ? 60 : 30);
   }
   // Some apps (Opera, for one) resize themselves after being placed, e.g. back to a size they remember.

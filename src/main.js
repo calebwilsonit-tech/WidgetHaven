@@ -1078,6 +1078,7 @@ app.whenReady().then(async () => {
   refitToWorkAreas(); // the usable area may have changed while Haven was closed (e.g. the bar was on)
   createWindow();
   for (const rec of store.widgets) createWidgetWindow(rec);
+  if (store.settings.tiler && store.settings.tiler.floatApps === 'steamwebhelper, Steam') store.settings.tiler.floatApps = '';
   tiler = tilerMod.setup({ store, save, palette: () => themes.palette(), log: console.warn });
   launcher = launcherMod.setup({
     store, save, webPrefs: WEB_PREFS, makeLogo, palette: () => themes.palette(), getFont: () => bar.cfg().font, log: console.warn,

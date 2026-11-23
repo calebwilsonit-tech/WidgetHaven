@@ -3,6 +3,13 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.10] — 2026-11-22
+
+### Fixed
+- The maximize button now toggles focus mode: press it again and the window goes back into the tiling layout (before, it stayed full-size).
+- Opening a new window or switching to another tiled window now ends focus mode, so new windows no longer land on top of a full-size one.
+- Steam is tiled like any other app again (it was on the *Always float* list by default). It's still floated automatically if it can't shrink to fit its tile.
+
 ## [1.3.9] — 2026-11-22
 
 ### Fixed
