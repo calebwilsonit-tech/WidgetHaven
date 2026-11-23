@@ -3,6 +3,19 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.4.0] — 2026-11-23
+
+### Added
+- **Automatic updates from GitHub:** the installed version checks shortly after starting and every 6 hours, downloads new releases in the background, and installs them when you restart Haven (a notification and the tray menu offer *Restart to update*). Settings → About shows the status, has a *Check now* button and an *Update automatically* switch. The portable version can't update itself, so it lets you know when a new version is out.
+
+### Changed
+- The Hidden icons panel shows your background apps, plus a button that opens Windows' own hidden icons (where every app's right-click menu works). Right-clicking an icon keeps the panel open behind the app's menu, and clicking back into the panel keeps it open.
+- Showing the real tray icons inside Haven's panel is switched off for now: standing in for the taskbar's tray stopped the bar from reserving its strip of the screen.
+
+### Fixed
+- Snipping Tool (and other screen-capture tools) is never tiled, so its toolbar no longer gets stretched.
+- Tray menus opened at the wrong spot (too far left) on screens with display scaling.
+
 ## [1.3.20] — 2026-11-23
 
 ### Added

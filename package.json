@@ -7,8 +7,8 @@
   "scripts": {
     "start": "electron .",
     "icon": "node tools/make-icon.js",
-    "dist": "electron-builder --win nsis portable",
-    "dist:setup": "electron-builder --win nsis",
+    "dist": "electron-builder --win nsis portable --publish never",
+    "dist:setup": "electron-builder --win nsis --publish never",
     "release:patch": "npm version patch && npm run dist",
     "release:minor": "npm version minor && npm run dist"
   },
@@ -27,6 +27,7 @@
     "electron-builder": "^25.1.8"
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "koffi": "^3.3.8"
   },
   "build": {
@@ -67,6 +68,13 @@
     },
     "portable": {
       "artifactName": "Haven-Portable-${version}.${ext}"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "calebwilsonit-tech",
+        "repo": "WidgetHaven"
+      }
+    ]
   }
 }

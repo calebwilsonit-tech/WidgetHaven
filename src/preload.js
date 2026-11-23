@@ -76,6 +76,10 @@ contextBridge.exposeInMainWorld('haven', {
   wmSet: invoke('wm:set'),
   wmFocus: invoke('wm:focus'),
   wmBringBack: invoke('wm:bringBack'),
+  updateGet: invoke('update:get'),
+  updateCheck: invoke('update:check'),
+  updateInstall: invoke('update:install'),
+  updateReleases: invoke('update:releases'),
   themeList: invoke('theme:list'),
   themeApply: invoke('theme:apply'),
   themeSave: invoke('theme:save'),
@@ -91,7 +95,7 @@ contextBridge.exposeInMainWorld('haven', {
   hide: () => ipcRenderer.send('win:hide'),
   quit: () => ipcRenderer.send('win:quit'),
   on: (ch, fn) => {
-    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw', 'studio:design', 'studio:state', 'studio:select', 'live:config', 'live:pause', 'bar:config', 'bar:state', 'theme:changed', 'flyout:open', 'flyout:close', 'launcher:open', 'launcher:close'];
+    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw', 'studio:design', 'studio:state', 'studio:select', 'live:config', 'live:pause', 'bar:config', 'bar:state', 'theme:changed', 'flyout:open', 'flyout:close', 'launcher:open', 'launcher:close', 'update:state'];
     if (!allowed.includes(ch)) return;
     ipcRenderer.on(ch, (_, data) => fn(data));
   },

@@ -16,6 +16,8 @@ const barMod = require('./bar');
 const themesMod = require('./themes');
 const tilerMod = require('./tiler');
 const launcherMod = require('./launcher');
+const updaterMod = require('./updater');
+let updater = null;
 let studio = null, live = null, bar = null, themes = null, tiler = null, launcher = null;
 let wallpaper = null;
 
@@ -72,6 +74,7 @@ const DEFAULT_SETTINGS = {
   desktopThemes: {},       // virtual desktop id -> theme id
   barTaskbar: {},          // remembers the taskbar's auto-hide state while the bar manages it
   hubSolid: true,          // the main Haven window stays opaque even when widgets are see-through
+  autoUpdate: true,        // download new releases from GitHub in the background
   lookSync: 'off',         // 'off' | 'widgets' (desktop widgets match the bar) | 'bar' (the bar matches the widgets)
   widgetRadius: null,      // corner roundness for widgets (px), set when widgets match the bar
   widgetFont: null,        // font for widgets, set when widgets match the bar
@@ -809,6 +812,7 @@ function buildTray() {
     { label: 'Lock widget positions', type: 'checkbox', checked: !!store.settings.lockPosition, click: (m) => { store.settings.lockPosition = m.checked; applyMode(); for (const w of widgetWins.values()) if (!w.isDestroyed()) lockWin(w); save(); broadcast(); } },
     { label: 'Always on top', type: 'checkbox', enabled: !isWidget(), checked: !!store.settings.alwaysOnTop, click: (m) => { store.settings.alwaysOnTop = m.checked; applySettings(); save(); send('lib:changed', snapshot()); } },
     { type: 'separator' },
+    updater && updater.state().status === 'ready' ? { label: `Restart to update to ${updater.state().version}`, click: () => updater.install() } : null,
     { label: 'Quit Haven', click: () => { quitting = true; app.quit(); } },
   ].filter(Boolean));
   tray.on('click', () => toggleWindow());
@@ -1109,6 +1113,11 @@ app.whenReady().then(async () => {
   bar.start();
   tiler.apply();
   launcher.apply();
+  updater = updaterMod.setup({
+    store, save, makeLogo, log: console.warn,
+    onState: (st) => { send('update:state', st); },
+    beforeInstall: () => { quitting = true; if (bar) bar.stop(); if (live) live.stop(); if (tiler) tiler.stop(); saveNow(); },
+  });
   ensureOverlay(); // preload the guide layer so the first drag draws instantly
   buildTray();
   applyHotkey(store.settings.hotkey);

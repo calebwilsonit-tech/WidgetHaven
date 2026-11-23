@@ -14,6 +14,8 @@ and Start-menu shortcuts, and starts Haven when it's done. If you'd rather not i
 > The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC".
 > Click **More info → Run anyway**.
 
+Haven updates itself: the installed version downloads new releases from GitHub in the background and installs them when it restarts (Settings → About).
+
 Uninstall from **Settings → Apps → Installed apps → Haven**. Your favorites, groups, layouts and designs are kept in
 `%APPDATA%\Haven`, so a reinstall or update picks up right where you left off.
 
@@ -48,7 +50,7 @@ A status bar in the style of Hyprland and Waybar setups (`Ctrl+Alt+B` turns it o
   - **Sound:** volume and what's playing.
   - **Battery:** battery details and brightness.
   - **CPU & memory:** usage and the apps using the most memory.
-  - **Hidden icons:** your real tray icons, with left- and right-click working like on the taskbar (even with the taskbar hidden), plus other apps running in the background.
+  - **Background apps:** apps running without a window, to open or quit, plus a button for Windows' hidden icons.
   - **Power:** lock, sleep, restart and shut down.
   - **Quick settings:** a control center.
 - **Windows taskbar:** *Show*, *Auto-hide* or *Hidden*. It always comes back when the bar is off or Haven quits.

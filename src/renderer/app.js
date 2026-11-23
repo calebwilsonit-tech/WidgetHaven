@@ -771,6 +771,8 @@ function openSettings(tab) {
     body = `<div style="display:flex;align-items:center;gap:16px;padding:8px 0 18px">
         <div class="logo" style="width:56px;height:56px;border-radius:16px;padding:12px;gap:4px"><i style="border-radius:4px"></i><i style="border-radius:4px"></i><i style="border-radius:4px"></i><i style="border-radius:4px"></i></div>
         <div><b style="font:600 22px var(--font-display)">Haven</b><div style="color:var(--text-2)">Version ${esc(S.version || '—')}${S.packaged ? '' : ' · development build'}</div></div></div>`
+      + row('Updates', '<span id="updText">Checking…</span>', `<button class="btn" id="updBtn">Check now</button>`)
+      + row('Update automatically', 'Downloads new versions from GitHub in the background and installs them when Haven restarts', sw('autoUpdate', s.autoUpdate !== false))
       + row('Your data', 'Favorites, groups, layouts and settings live in your user folder and survive updates and uninstalls', `<button class="btn" id="doFolder2">Open</button>`)
       + row('Welcome tour', '', `<button class="btn" id="doTour2">Show</button>`);
   } else {
@@ -806,6 +808,13 @@ function openSettings(tab) {
   $('#doFolder', m)?.addEventListener('click', () => api.openDataFolder());
   $('#doTour', m)?.addEventListener('click', welcome);
   $('#doTour2', m)?.addEventListener('click', welcome);
+  if ($('#updText', m)) { api.updateGet && api.updateGet().then(showUpdate); }
+  $('#updBtn', m)?.addEventListener('click', async () => {
+    const st = await api.updateGet();
+    if (st.status === 'ready') return api.updateInstall();
+    if (st.status === 'available') return api.updateReleases();
+    $('#updText').textContent = 'Checking…'; showUpdate(await api.updateCheck());
+  });
   $('#doFolder2', m)?.addEventListener('click', () => api.openDataFolder());
   $('#openTransparency', m)?.addEventListener('click', () => transparencyPanel());
   // Snapping controls
@@ -1221,6 +1230,19 @@ function hexLum(hex) { // WCAG relative luminance
   const [r, g, b] = hexToRgb(hex);
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
+// Settings → About: what the updater is doing.
+function showUpdate(st) {
+  const t = $('#updText'), b = $('#updBtn');
+  if (!t || !st) return;
+  const v = st.version ? ' ' + st.version : '';
+  t.textContent = {
+    dev: 'Development build: updates are off',
+    idle: `Version ${st.current}`, checking: 'Checking GitHub for a new version…', latest: `You're up to date (${st.current})`,
+    downloading: `Downloading Haven${v}… ${st.percent || 0}%`, ready: `Haven${v} is ready to install`,
+    available: `Haven${v} is out (portable: download it from GitHub)`, error: `Couldn't check: ${st.error || 'unknown error'}`,
+  }[st.status] || '';
+  if (b) { b.textContent = st.status === 'ready' ? 'Restart to update' : st.status === 'available' ? 'Download' : 'Check now'; b.disabled = st.status === 'dev' || st.status === 'checking' || st.status === 'downloading'; b.classList.toggle('primary', st.status === 'ready'); }
+}
 function applyTheme() {
   const s = S.settings;
   const root = document.documentElement;
@@ -1523,6 +1545,7 @@ function bind() {
     $$('img[src^="haven://icon/"]').forEach((img) => { img.src = img.src.replace(/\?v=.*/, '?v=hd'); });
   });
   api.on('scan:state', (on) => { S.scanning = on; renderStatus(); });
+  api.on('update:state', (st) => showUpdate(st));
   api.on('theme:wallpaper', (p) => {
     S.wall = p;
     applyTheme();
