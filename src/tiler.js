@@ -264,9 +264,35 @@ function setup({ store, save, palette, log }) {
     const p = palette();
     for (const h of [...bordered]) if (!tiledNow.has(h) || !cfg.border || !cfg.enabled) { try { k.DwmSetWindowAttribute(h, 34, [0xFFFFFFFF], 4); } catch {} bordered.delete(h); }
     if (!cfg.border || !cfg.enabled) return;
+    const active = tiledNow.has(fg) ? fg : 0;
+    // The window taking focus fades its border up to the accent; the one losing it fades back down.
+    if (active !== lastActive) fadeBorders(lastActive, active, p);
+    lastActive = active;
     for (const h of tiledNow) {
-      try { k.DwmSetWindowAttribute(h, 34, [colorref(h === fg ? p.accent : p.surface)], 4); bordered.add(h); } catch {}
+      if (fading.has(h)) continue;
+      try { k.DwmSetWindowAttribute(h, 34, [colorref(h === active ? p.accent : p.surface)], 4); bordered.add(h); } catch {}
     }
+  }
+  let lastActive = 0, fadeTimer = null;
+  const fading = new Set();
+  const mixHex = (a, b, t) => { const x = parseInt(a.slice(1, 7), 16), y = parseInt(b.slice(1, 7), 16); const c = (sh) => Math.round(((x >> sh) & 255) + ((((y >> sh) & 255) - ((x >> sh) & 255)) * t)); return '#' + [16, 8, 0].map((sh) => c(sh).toString(16).padStart(2, '0')).join(''); };
+  function fadeBorders(from, to, p) {
+    clearInterval(fadeTimer);
+    fading.clear();
+    const ms = S().animate ? 220 : 0;
+    const set = (h, hex) => { if (h && k.IsWindow(h)) { try { k.DwmSetWindowAttribute(h, 34, [colorref(hex)], 4); bordered.add(h); } catch {} } };
+    if (!ms) { set(from, p.surface); set(to, p.accent); return; }
+    if (from) fading.add(from);
+    if (to) fading.add(to);
+    const t0 = Date.now();
+    const step = () => {
+      const t = Math.min(1, (Date.now() - t0) / ms), e = 1 - Math.pow(1 - t, 2);
+      if (from && tiledNow.has(from)) set(from, mixHex(p.accent, p.surface, e));
+      if (to) set(to, mixHex(p.surface, p.accent, e));
+      if (t >= 1) { clearInterval(fadeTimer); fadeTimer = null; fading.clear(); }
+    };
+    fadeTimer = setInterval(step, 16);
+    step();
   }
 
   // ------------------------------------------------------------ events

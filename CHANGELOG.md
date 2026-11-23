@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.7] — 2026-11-22
+
+### Changed
+- The tiling active-window border now fades in on the window you switch to, and fades back down on the one you left (instant when tiling animations are off).
+
 ## [1.3.6] — 2026-11-22
 
 ### Added
