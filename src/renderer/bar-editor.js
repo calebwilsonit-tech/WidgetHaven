@@ -334,6 +334,24 @@
   }
   // ---------------------------------------------------------------- Windows (beta) tab
   let WM = null;
+  // Tiling presets: one click sets layout, gaps, main width, animation and the active border.
+  const TILE_PRESETS = [
+    { id: 'hypr', name: 'Hyprland default', desc: 'Dwindle, 5 / 10 gaps, smooth', p: { layout: 'dwindle', inner: 5, outer: 10, animate: true, speed: 'smooth', border: true } },
+    { id: 'tight', name: 'Tight', desc: 'Almost no gaps, quick moves', p: { layout: 'dwindle', inner: 2, outer: 2, animate: true, speed: 'fast', border: true } },
+    { id: 'airy', name: 'Airy', desc: 'Big gaps, lots of wallpaper', p: { layout: 'dwindle', inner: 16, outer: 24, animate: true, speed: 'smooth', border: true } },
+    { id: 'focus', name: 'Focus', desc: 'Master layout, main window 60%', p: { layout: 'master', master: 60, inner: 8, outer: 12, animate: true, speed: 'smooth', border: true } },
+    { id: 'wide', name: 'Wide master', desc: 'One big window, a side stack', p: { layout: 'master', master: 70, inner: 6, outer: 10, animate: true, speed: 'fast', border: true } },
+    { id: 'calm', name: 'Calm', desc: 'Master, soft gaps, no border', p: { layout: 'master', master: 55, inner: 12, outer: 18, animate: true, speed: 'smooth', border: false } },
+    { id: 'seamless', name: 'Seamless', desc: 'Edge to edge, no gaps, no border', p: { layout: 'dwindle', inner: 0, outer: 0, animate: true, speed: 'fast', border: false } },
+    { id: 'still', name: 'No animation', desc: 'Windows snap straight into place', p: { layout: 'dwindle', inner: 8, outer: 10, animate: false, border: true } },
+  ];
+  function presetCard(pr, cur) {
+    const p = { ...cur, ...pr.p };
+    const on = ['layout', 'inner', 'outer', 'animate', 'border'].every((k) => cur[k] === p[k]) && (p.layout !== 'master' || cur.master === p.master) && (!p.animate || cur.speed === p.speed);
+    const k = 0.45; // gaps drawn a bit smaller in the tiny preview
+    const style = `--gi:${Math.max(1, p.inner * k)}px;--go:${Math.max(1, p.outer * k)}px;--mw:${p.master || 55}%`;
+    return `<div class="tp ${on ? 'on' : ''}" data-tp="${pr.id}"><div class="tpv ${p.layout} ${p.border ? 'bd' : ''} ${p.animate ? 'an' : ''}" style="${style}"><i></i><i></i><i></i></div><b>${esc(pr.name)}</b><span>${esc(pr.desc)}</span></div>`;
+  }
   async function showWm() { WM = await api.wmGet(); renderWm(); }
   function renderWm() {
     const t = WM.tiler, l = WM.launcher;
@@ -342,7 +360,8 @@
     const keyRows = [['Ctrl+Alt+←↑↓→', 'Focus the window in that direction'], ['Ctrl+Alt+Shift+←↑↓→', 'Swap windows'], ['Drag a window onto another', 'Swap them'], ['Ctrl+Alt+F', 'Float / tile the active window'], ['Ctrl+Alt+L', 'Switch layout (dwindle / master)'], ['Ctrl+Alt+Q', 'Close the active window'], ['Ctrl+Alt+Enter', 'Open a terminal'], ['Ctrl+Alt+P', 'Pause / resume tiling'], ['Ctrl+Alt+1…9', 'Jump to a desktop (with the bar on)'], ['Maximize a window', 'It goes fullscreen; the rest stay tiled behind it']];
     $('#wmMain').innerHTML = `
       <div class="live-head" style="margin-bottom:10px"><div><h2>Tiling windows <small class="beta">beta</small></h2><p class="muted">Haven arranges your app windows side by side with gaps, like Hyprland, and animates them into place. New windows split the space; close one and the rest fill in.</p></div>${sw(t.enabled, 'wmOn')}</div>
-      <div class="wmdemo ${t.layout}"><i></i><i></i><i></i><i></i></div>
+      <div class="sec-h"><h4>Presets</h4></div>
+      <div class="tpresets">${TILE_PRESETS.map((pr) => presetCard(pr, t)).join('')}</div>
       <div class="sec-h"><h4>Keyboard</h4></div>
       <div class="keys">${keyRows.map(([k2, d]) => `<div><kbd>${esc(k2)}</kbd><span>${esc(d)}</span></div>`).join('')}</div>
       <div class="live-head" style="margin:22px 0 10px"><div><h2>App launcher</h2><p class="muted">A quick search for your apps, games and files that pops up in the middle of the screen.</p></div>${sw(l.enabled, 'lnOn')}</div>
@@ -370,6 +389,11 @@
     const setT = async (p) => { WM.tiler = await api.wmSet('tiler', p); renderWm(); };
     const setL = async (p) => { WM.launcher = await api.wmSet('launcher', p); renderWm(); };
     $('#wmOn').onclick = () => setT({ enabled: !t.enabled });
+    $$('[data-tp]').forEach((c) => (c.onclick = async () => {
+      const pr = TILE_PRESETS.find((x) => x.id === c.dataset.tp);
+      await setT({ ...pr.p });
+      toast(`${pr.name} applied${t.enabled ? '' : ' — turn tiling on to use it'}`);
+    }));
     $('#lnOn').onclick = () => setL({ enabled: !l.enabled });
     $('#lnWin').onclick = () => setL({ winS: !l.winS });
     $('#lnAlt').onclick = () => setL({ altSpace: !l.altSpace });

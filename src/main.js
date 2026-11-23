@@ -1062,6 +1062,7 @@ app.whenReady().then(async () => {
     store, save, desktop, webPrefs: WEB_PREFS, makeLogo, themes, log: console.warn,
     wallpaperURL: () => studio.wallpaperURL(), customFonts: () => studio.fontsList(),
     launchItem: (id) => launch(id), toggleHub: () => toggleWindow(), openStudio: (tab) => studio.openEditor({ tab }),
+    getTiler: () => tiler,
     setLive: (on) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: on }; save(); live.update(); studio.notifyEditor(); },
     // Windows shoves windows out of the bar's strip a moment after it's reserved; refit after that.
     onReserved: (() => { let ts = []; return () => { ts.forEach(clearTimeout); ts = [250, 1000, 2200].map((ms) => setTimeout(refitToWorkAreas, ms)); }; })(),

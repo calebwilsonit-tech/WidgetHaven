@@ -3,6 +3,12 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.3] — 2026-11-22
+
+### Added
+- **Tiling presets** in Studio → Windows: Hyprland default, Tight, Airy, Focus, Wide master, Calm, Seamless and No animation. Each sets the layout, gaps, main width, animation and active border in one click.
+- More ways to turn tiling on: a **Tile windows (beta)** switch in the bar's right-click menu, and a *Tiling windows (beta)* row in Settings → Widgets (alongside the tray checkbox and the switch in Studio).
+
 ## [1.3.2] — 2026-11-22
 
 ### Added

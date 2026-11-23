@@ -531,6 +531,9 @@ function setup(d) {
       { label: 'Style', submenu: [['islands', 'Islands'], ['zones', 'Three pills'], ['floating', 'Floating bar'], ['full', 'Edge to edge']].map(([v, l]) => ({ label: l, type: 'radio', checked: c.style === v, click: () => set({ style: v }) })) },
       { label: 'Windows taskbar', submenu: [['show', 'Show it'], ['autohide', 'Auto-hide (shows at the screen edge)'], ['hidden', 'Hide it completely']].map(([v, l]) => ({ label: l, type: 'radio', checked: c.taskbar === v, click: () => set({ taskbar: v }) })) },
       { type: 'separator' },
+      d.getTiler && d.getTiler() ? { label: 'Tile windows (beta)', type: 'checkbox', checked: !!d.getTiler().cfg().enabled, click: (m) => d.getTiler().set({ enabled: m.checked }) } : null,
+      { label: 'Tiling settings…', click: () => openStudio('wm') },
+      { type: 'separator' },
       { label: 'Turn off the bar   (Ctrl+Alt+B)', click: () => set({ enabled: false }) },
     ];
     if (where && where.desktop) {
