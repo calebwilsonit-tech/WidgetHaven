@@ -227,31 +227,41 @@ function setup({ store, save, palette, log }) {
     }
     if (changed) setTimeout(retile, 30);
   }
+  // Smooth movement: each window gets its new size once, up front (apps redraw their contents only once),
+  // then just glides to its spot. Moving without resizing is cheap, so it can run at a high frame rate.
+  const now = () => Number(process.hrtime.bigint() / 1000000n);
+  const easeOut = (t) => 1 - Math.pow(1 - t, 4);
   function animate(moves, noFit) {
-    if (anim) { clearInterval(anim.timer); anim = null; }
+    if (anim) { clearTimeout(anim.timer); anim = null; }
     const jobs = [];
     for (const m of moves) {
       if (!k.IsWindow(m.h)) continue;
       const w = rect(m.h), e = ext(m.h);
       const off = { l: e.left - w.left, t: e.top - w.top, r: w.right - e.right, b: w.bottom - e.bottom };
-      let from = { x: e.left, y: e.top, width: e.right - e.left, height: e.bottom - e.top };
-      if (m.fresh) { const s = 0.9; from = { x: m.to.x + m.to.width * (1 - s) / 2, y: m.to.y + m.to.height * (1 - s) / 2, width: m.to.width * s, height: m.to.height * s }; }
-      const same = Math.abs(from.x - m.to.x) < 2 && Math.abs(from.y - m.to.y) < 2 && Math.abs(from.width - m.to.width) < 2 && Math.abs(from.height - m.to.height) < 2;
-      if (same) continue;
+      const cur = { x: e.left, y: e.top, width: e.right - e.left, height: e.bottom - e.top };
+      const same = Math.abs(cur.x - m.to.x) < 2 && Math.abs(cur.y - m.to.y) < 2 && Math.abs(cur.width - m.to.width) < 2 && Math.abs(cur.height - m.to.height) < 2;
+      if (same && !m.fresh) continue;
+      // Start from where the window is, keeping its center, already at the final size. New windows slide up into place.
+      const from = m.fresh
+        ? { x: m.to.x, y: m.to.y + Math.round(m.to.height * 0.06) }
+        : { x: Math.round(cur.x + cur.width / 2 - m.to.width / 2), y: Math.round(cur.y + cur.height / 2 - m.to.height / 2) };
       jobs.push({ h: m.h, from, to: m.to, off });
     }
     if (!jobs.length) return;
     const cfg = S();
-    const ms = !cfg.animate ? 0 : cfg.speed === 'fast' ? 120 : 200;
-    if (!ms) { place(jobs.map((j) => ({ h: j.h, r: j.to, off: j.off }))); if (!noFit) setTimeout(() => checkFit(jobs), 150); return; }
-    const t0 = Date.now();
-    const step = () => {
-      const t = Math.min(1, (Date.now() - t0) / ms), e = ease(t);
-      place(jobs.map((j) => ({ h: j.h, off: j.off, r: { x: Math.round(j.from.x + (j.to.x - j.from.x) * e), y: Math.round(j.from.y + (j.to.y - j.from.y) * e), width: Math.round(j.from.width + (j.to.width - j.from.width) * e), height: Math.round(j.from.height + (j.to.height - j.from.height) * e) } })));
-      if (t >= 1 && anim) { clearInterval(anim.timer); anim = null; if (!noFit) setTimeout(() => checkFit(jobs), 150); }
+    const ms = !cfg.animate ? 0 : cfg.speed === 'fast' ? 160 : 260;
+    const done = () => { if (!noFit) setTimeout(() => checkFit(jobs), 120); };
+    if (!ms) { place(jobs.map((j) => ({ h: j.h, r: j.to, off: j.off }))); done(); return; }
+    const frame = (e) => place(jobs.map((j) => ({ h: j.h, off: j.off, r: { x: Math.round(j.from.x + (j.to.x - j.from.x) * e), y: Math.round(j.from.y + (j.to.y - j.from.y) * e), width: j.to.width, height: j.to.height } })));
+    frame(0);
+    const t0 = now();
+    const tick = () => {
+      const t = Math.min(1, (now() - t0) / ms);
+      frame(easeOut(t));
+      if (t >= 1) { anim = null; done(); return; }
+      anim = { timer: setTimeout(tick, 7) }; // ~144 fps; only positions change, so this stays light
     };
-    anim = { timer: setInterval(step, 16) };
-    step();
+    anim = { timer: setTimeout(tick, 7) };
   }
 
   // ------------------------------------------------------------ active-window border (Windows 11)
@@ -279,7 +289,7 @@ function setup({ store, save, palette, log }) {
   function fadeBorders(from, to, p) {
     clearInterval(fadeTimer);
     fading.clear();
-    const ms = S().animate ? 220 : 0;
+    const ms = S().animate ? 150 : 0;
     const set = (h, hex) => { if (h && k.IsWindow(h)) { try { k.DwmSetWindowAttribute(h, 34, [colorref(hex)], 4); bordered.add(h); } catch {} } };
     if (!ms) { set(from, p.surface); set(to, p.accent); return; }
     if (from) fading.add(from);
@@ -400,27 +410,29 @@ function setup({ store, save, palette, log }) {
   // ------------------------------------------------------------ focus follows mouse
   // A light cursor check (only while tiling is on): resting on a tiled window for a moment focuses it.
   // It never steals focus from menus, dialogs or Haven's own pop-ups, and skips while a button is held.
-  let fmTimer = null, fmLast = 0, fmSince = 0;
+  let fmTimer = null, fmLast = 0, fmX = -1, fmY = -1;
   const btnDown = () => [0x01, 0x02, 0x04].some((v) => (k.GetAsyncKeyState(v) & 0x8000) !== 0);
   function followTick() {
     if (paused || dragging || focusWin) return;
     const p = {};
     if (!k.GetCursorPos(p)) return;
+    const moved = p.x !== fmX || p.y !== fmY;
+    fmX = p.x; fmY = p.y;
+    if (!moved) return;
     const h = Number(k.GetAncestor(k.WindowFromPoint(p), 2 /* GA_ROOT */));
     if (!tiledNow.has(h)) { fmLast = 0; return; }
     const fg = Number(k.GetForegroundWindow());
     if (h === fg) { fmLast = h; return; }
     if (!tiledNow.has(fg) && !floating.has(fg)) return; // a menu, dialog, launcher… keep it
     if (btnDown()) return;
-    if (h !== fmLast) { fmLast = h; fmSince = Date.now(); return; }
-    if (Date.now() - fmSince < 120) return;
+    fmLast = h;
     k.keybd_event(0xE8, 0, 0, 0); k.keybd_event(0xE8, 0, 2, 0); k.SetForegroundWindow(h); // unused key: unlocks focus without poking menus
     // Floating windows stay above the tiles, like in Hyprland.
     for (const f of floating) if (k.IsWindow(f) && k.IsWindowVisible(f)) { try { k.SetWindowPos(f, 0, 0, 0, 0, 0, 0x1 | 0x2 | 0x10); } catch {} }
   }
   function follow(on) {
     clearInterval(fmTimer); fmTimer = null;
-    if (on) fmTimer = setInterval(followTick, 60);
+    if (on) fmTimer = setInterval(followTick, 25);
   }
 
   // ------------------------------------------------------------ on / off

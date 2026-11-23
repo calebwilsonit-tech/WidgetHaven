@@ -3,6 +3,13 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.8] — 2026-11-22
+
+### Changed
+- Smoother tiling animations: each window gets its new size once, then glides into place with a softer ease at a high frame rate, instead of being resized every frame. New windows slide up into their spot.
+- Focus follows mouse is now instant: no wait, checked as soon as the pointer moves (and no work at all while it's still).
+- The active-window border fades in faster.
+
 ## [1.3.7] — 2026-11-22
 
 ### Changed
