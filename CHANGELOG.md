@@ -3,6 +3,13 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.13] — 2026-11-22
+
+### Added
+- **When there's no room** option in Studio → Windows: *Float it* (centered) or *Own desktop*. With *Own desktop*, a window that can't shrink enough to fit is moved to a new virtual desktop of its own, and that desktop is removed again when the window closes (unless you've put other windows on it).
+  - It's always the newest window that can't shrink that moves, never the windows that were already tiled.
+  - This uses Windows 11's internal desktop interface (24H2 and later). If that isn't available, Haven floats the window instead.
+
 ## [1.3.12] — 2026-11-22
 
 ### Changed

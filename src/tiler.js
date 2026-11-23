@@ -15,12 +15,13 @@ const DEFAULTS = {
   ignore: 'Taskmgr.exe, Calculator, PowerToys',
   floatApps: '',           // apps that always open floating (centered); the rest tile around them
   followMouse: true,      // hovering a tiled window focuses it (Hyprland's default)
+  overflow: 'float',      // when a window can't fit even the roomiest tile: 'float' | 'desktop' (its own virtual desktop)
 };
 const SKIP_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd', '#32770', 'Windows.UI.Core.CoreWindow',
   'TopLevelWindowForOverflowXamlIsland', 'XamlExplorerHostIslandWindow', 'ApplicationManager_ImmersiveShellWindow', 'ForegroundStaging',
   'MultitaskingViewFrame', 'NotifyIconOverflowWindow', 'Windows.UI.Composition.DesktopWindowContentBridge', 'TaskManagerWindow_Mini', 'tooltips_class32']);
 
-function setup({ store, save, palette, log }) {
+function setup({ store, save, palette, log, vd }) {
   const S = () => ({ ...DEFAULTS, ...(store.settings.tiler || {}) });
   let k = null;
   try {
@@ -208,7 +209,7 @@ function setup({ store, save, palette, log }) {
       });
       if (focusWin && prev.includes(focusWin)) { try { k.SetWindowPos(focusWin, 0, 0, 0, 0, 0, 0x1 | 0x2 | 0x10); } catch {} }
     }
-    for (const m of moves) known.add(m.h);
+    for (const m of moves) { if (!known.has(m.h)) firstSeen.set(m.h, Date.now()); known.add(m.h); }
     for (const h of [...slots.keys()]) if (!tiledNow.has(h)) slots.delete(h);
     for (const h of [...minSize.keys()]) if (!k.IsWindow(h)) minSize.delete(h);
     watchProcesses();
@@ -236,10 +237,31 @@ function setup({ store, save, palette, log }) {
   // than its slot, float it centered and tile everything else around it, so nothing overlaps.
   const minSize = new Map(); // window -> the smallest size it accepted (apps with a minimum size)
   const autoFloat = new Set(); // floated only because there wasn't room; they rejoin when space frees up
+  const ownDesk = new Map();   // window -> the desktop Haven made for it (removed again when it closes)
+  const firstSeen = new Map(); // window -> when tiling first saw it
+  const vdPending = new Set();
+  // No room anywhere on this desktop. The newest window that can't shrink is the one that leaves (never the
+  // windows that were already happily tiled): it gets a desktop of its own, or floats.
+  function overflowed(h) {
+    const list = [...order.values()].find((l) => l.includes(h)) || [h];
+    const culprit = list.filter((x) => x === h || minSize.has(x)).sort((a, b) => (firstSeen.get(b) || 0) - (firstSeen.get(a) || 0))[0] || h;
+    if (vdPending.has(culprit) || ownDesk.has(culprit)) return;
+    floating.add(culprit); // out of this layout while it moves
+    if (S().overflow === 'desktop' && vd) {
+      vdPending.add(culprit);
+      vd.move(culprit).then((r) => {
+        vdPending.delete(culprit);
+        if (r && r.ok) { ownDesk.set(culprit, r.id); floating.delete(culprit); soon(60); }
+        else { autoFloat.add(culprit); centerFloat(culprit); soon(30); log && log('own desktop failed: ' + (r && r.error)); }
+      });
+      return;
+    }
+    autoFloat.add(culprit); centerFloat(culprit);
+  }
   function checkFit(jobs) {
     let changed = false;
     for (const j of jobs) {
-      if (j.h === focusWin || floating.has(j.h) || !k.IsWindow(j.h)) continue;
+      if (j.h === focusWin || floating.has(j.h) || vdPending.has(j.h) || !k.IsWindow(j.h)) continue;
       const e = ext(j.h), w = e.right - e.left, h = e.bottom - e.top;
       const to = slots.get(j.h) || j.to; // its current tile (the layout may have changed since)
       if (w <= to.width + 12 && h <= to.height + 12) continue;
@@ -248,10 +270,14 @@ function setup({ store, save, palette, log }) {
       const known = minSize.get(j.h);
       const first = [...order.values()].some((list) => list[0] === j.h);
       minSize.set(j.h, { w: Math.max(w, known ? known.w : 0), h: Math.max(h, known ? known.h : 0) });
-      if (!first) {
+      // Another window that can't shrink already holds the first tile: don't swap them back and forth.
+      const frontTaken = [...order.values()].some((list) => list.includes(j.h) && list[0] !== j.h && minSize.has(list[0]));
+      if (frontTaken) {
+        overflowed(j.h);
+      } else if (!first) {
         for (const list of order.values()) { const i = list.indexOf(j.h); if (i > 0) { list.splice(i, 1); list.unshift(j.h); } }
       } else if (known && w <= known.w && h <= known.h) {
-        floating.add(j.h); autoFloat.add(j.h); centerFloat(j.h);
+        overflowed(j.h);
       }
       changed = true;
     }
@@ -349,6 +375,7 @@ function setup({ store, save, palette, log }) {
       if (focusWin && h !== focusWin && tiledNow.has(h)) { focusWin = 0; soon(10); }
       borders(); return;
     }
+    if (ev === 0x8001 && ownDesk.has(h)) { const id = ownDesk.get(h); ownDesk.delete(h); setTimeout(() => vd && vd.clean(id), 600); }
     if ((ev === 0x8001 || ev === 0x8003 || ev === 0x0016) && autoFloat.size && tiledNow.has(h)) { for (const f of autoFloat) floating.delete(f); autoFloat.clear(); }
     soon(ev === 0x8002 || ev === 0x8018 ? 60 : 30);
   }

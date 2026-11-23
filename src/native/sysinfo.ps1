@@ -147,6 +147,97 @@ function Get-Desktops {
   @{ list = @($list); current = $cur }
 }
 
+# Moving another app's window to its own virtual desktop. Windows has no public way to do this, so it uses
+# the shell's internal desktop interfaces (Windows 11 24H2 and later). If they're unavailable, the tiler
+# falls back to floating the window.
+try {
+Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+namespace HavenVD {
+  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("6D5140C1-7436-11CE-8034-00AA006009FA")]
+  public interface IServiceProvider10 { [return: MarshalAs(UnmanagedType.IUnknown)] object QueryService(ref Guid service, ref Guid riid); }
+  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("92CA9DCD-5622-4BBA-A805-5E9F541BD8C9")]
+  public interface IObjectArray { void GetCount(out int count); void GetAt(int index, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out object obj); }
+  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("372E1D3B-38D3-42E4-A15B-8AB2B178F513")]
+  public interface IApplicationView { }
+  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("3F07F4BE-B107-441A-AF0F-39D82529072C")]
+  public interface IVirtualDesktop { bool IsViewVisible(IApplicationView view); Guid GetId(); }
+  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("53F5CA0B-158F-4124-900C-057158060B27")]
+  public interface IVirtualDesktopManagerInternal {
+    int GetCount();
+    void MoveViewToDesktop(IApplicationView view, IVirtualDesktop desktop);
+    bool CanViewMoveDesktops(IApplicationView view);
+    IVirtualDesktop GetCurrentDesktop();
+    void GetDesktops(out IObjectArray desktops);
+    [PreserveSig] int GetAdjacentDesktop(IVirtualDesktop from, int direction, out IVirtualDesktop desktop);
+    void SwitchDesktop(IVirtualDesktop desktop);
+    void SwitchDesktopAndMoveForegroundView(IVirtualDesktop desktop);
+    IVirtualDesktop CreateDesktop();
+    void MoveDesktop(IVirtualDesktop desktop, int nIndex);
+    void RemoveDesktop(IVirtualDesktop desktop, IVirtualDesktop fallback);
+    IVirtualDesktop FindDesktop(ref Guid desktopid);
+  }
+  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("1841C6D7-4F9D-42C0-AF41-8747538F10E5")]
+  public interface IApplicationViewCollection {
+    int GetViews(out IObjectArray array);
+    int GetViewsByZOrder(out IObjectArray array);
+    int GetViewsByAppUserModelId(string id, out IObjectArray array);
+    int GetViewForHwnd(IntPtr hwnd, out IApplicationView view);
+  }
+  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("a5cd92ff-29be-454c-8d04-d82879fb3f1b")]
+  public interface IVirtualDesktopManagerPublic {
+    [PreserveSig] int IsWindowOnCurrentVirtualDesktop(IntPtr hwnd, out bool on);
+    [PreserveSig] int GetWindowDesktopId(IntPtr hwnd, out Guid id);
+  }
+  public static class VD {
+    delegate bool EnumProc(IntPtr h, IntPtr l);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern int GetWindowTextLengthW(IntPtr h);
+    [DllImport("user32.dll")] static extern IntPtr GetWindowLongPtrW(IntPtr h, int i);
+    static IVirtualDesktopManagerInternal mgr;
+    static IApplicationViewCollection views;
+    static IVirtualDesktopManagerPublic pub;
+    static void Init() {
+      if (mgr != null) return;
+      var shell = (IServiceProvider10)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("C2F03A33-21F5-47FA-B4BB-156362A2F239")));
+      var sMgr = new Guid("C5E0CDCA-7B6E-41B2-9FC4-D93975CC467B"); var iMgr = typeof(IVirtualDesktopManagerInternal).GUID;
+      mgr = (IVirtualDesktopManagerInternal)shell.QueryService(ref sMgr, ref iMgr);
+      var iCol = typeof(IApplicationViewCollection).GUID;
+      views = (IApplicationViewCollection)shell.QueryService(ref iCol, ref iCol);
+      pub = (IVirtualDesktopManagerPublic)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("aa509086-5ca9-4c25-8f95-589d3c07b48a")));
+    }
+    public static string MoveToNew(long hwnd) {
+      Init();
+      IApplicationView view; int hr = views.GetViewForHwnd(new IntPtr(hwnd), out view);
+      if (hr != 0 || view == null) throw new Exception("no view");
+      var d = mgr.CreateDesktop();
+      mgr.MoveViewToDesktop(view, d);
+      return d.GetId().ToString();
+    }
+    // Removes a desktop Haven made, but only once no app windows are left on it.
+    public static bool RemoveIfEmpty(string id) {
+      Init();
+      var g = new Guid(id);
+      bool used = false;
+      EnumWindows((h, l) => {
+        if (!IsWindowVisible(h) || GetWindowTextLengthW(h) == 0) return true;
+        if ((GetWindowLongPtrW(h, -20).ToInt64() & 0x80) != 0) return true;
+        Guid d; if (pub.GetWindowDesktopId(h, out d) == 0 && d == g) { used = true; return false; }
+        return true;
+      }, IntPtr.Zero);
+      if (used) return false;
+      var desk = mgr.FindDesktop(ref g);
+      mgr.RemoveDesktop(desk, mgr.GetCurrentDesktop());
+      return true;
+    }
+  }
+}
+'@
+} catch {}
+
 # Now playing (Windows media sessions: Spotify, browsers, media players…).
 $script:media = $null
 try {
@@ -260,6 +351,8 @@ while ($true) {
       'setBright' { try { Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 1; Brightness = [byte]$a[1] } | Out-Null } catch {} }
       'net' { Reply 'net' (Get-NetInfo) }
       'procs' { Reply 'procs' (Get-Procs) }
+      'vdnew' { try { $id = [HavenVD.VD]::MoveToNew([long]$a[1]); Reply 'vd' @{ ok = $true; id = $id } } catch { Reply 'vd' @{ ok = $false; error = "$($_.Exception.Message)" } } }
+      'vdclean' { try { $null = [HavenVD.VD]::RemoveIfEmpty($a[1]) } catch {} }
     }
     $fast = $true
   }

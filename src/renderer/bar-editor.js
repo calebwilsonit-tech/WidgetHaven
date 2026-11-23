@@ -374,6 +374,7 @@
       <div class="group"><h5>Layout</h5>
         ${fld('Style', segW('wmLayout', t.layout, [['dwindle', 'Dwindle'], ['master', 'Master']]))}
         ${t.layout === 'master' ? fld('Main width', `<input type="range" id="wmMaster" min="30" max="75" value="${t.master}" style="--p:${((t.master - 30) / 45) * 100}%"><span class="val">${t.master}%</span>`) : ''}
+        ${fld('No room?', segW('wmOverflow', t.overflow || 'float', [['float', 'Float it'], ['desktop', 'Own desktop']]), 'When a window can\'t shrink enough to fit even the biggest tile.')}
         ${fld('Inner gaps', `<input type="range" id="wmInner" min="0" max="30" value="${t.inner}" style="--p:${(t.inner / 30) * 100}%"><span class="val">${t.inner}px</span>`)}
         ${fld('Outer gaps', `<input type="range" id="wmOuter" min="0" max="40" value="${t.outer}" style="--p:${(t.outer / 40) * 100}%"><span class="val">${t.outer}px</span>`)}
       </div>
@@ -406,6 +407,7 @@
     $('#wmBorder').onclick = () => setT({ border: !t.border });
     $('#wmFollow').onclick = () => setT({ followMouse: t.followMouse === false });
     $$('#wmLayout button').forEach((b) => (b.onclick = () => setT({ layout: b.dataset.v })));
+    $$('#wmOverflow button').forEach((b) => (b.onclick = () => setT({ overflow: b.dataset.v })));
     $$('#wmAnim button').forEach((b) => (b.onclick = () => setT(b.dataset.v === 'off' ? { animate: false } : { animate: true, speed: b.dataset.v })));
     for (const [id, key, unit] of [['wmInner', 'inner', 'px'], ['wmOuter', 'outer', 'px'], ['wmMaster', 'master', '%']]) {
       const r = $('#' + id);

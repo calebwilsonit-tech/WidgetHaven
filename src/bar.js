@@ -90,7 +90,7 @@ function setup(d) {
     });
     helper.on('exit', () => {
       helper = null;
-      if (wins.size) { clearTimeout(helperRestart); helperRestart = setTimeout(startHelper, 3000); }
+      if (wins.size || keepHelper) { clearTimeout(helperRestart); helperRestart = setTimeout(startHelper, 3000); }
     });
   }
   function stopHelper() {
@@ -99,6 +99,10 @@ function setup(d) {
   }
   const tell = (cmd) => { if (helper && helper.stdin.writable) helper.stdin.write(cmd + '\n'); };
   const waiters = {};
+  // The tiler also uses the helper (to give a window its own desktop), even while the bar is off.
+  let keepHelper = false;
+  function vdMove(h) { keepHelper = true; startHelper(); return ask('vdnew ' + Math.round(+h), 'vd', 15000); }
+  function vdClean(id) { keepHelper = true; startHelper(); tell('vdclean ' + String(id).replace(/[^0-9a-f-]/gi, '')); }
   function ask(cmd, key, ms = 6000) {
     return new Promise((res) => {
       if (!helper) return res(null);
@@ -407,7 +411,7 @@ function setup(d) {
     const c = cfg();
     applyShortcuts();
     applyTaskbar();
-    if (!c.enabled) { stopHelper(); clearInterval(statTimer); clearInterval(netTimer); clearInterval(fsTimer); onTaskbar && onTaskbar(); return status(); }
+    if (!c.enabled) { if (!keepHelper) stopHelper(); clearInterval(statTimer); clearInterval(netTimer); clearInterval(fsTimer); onTaskbar && onTaskbar(); return status(); }
     for (const disp of targets()) create(disp);
     startHelper();
     sampleStats(); sampleWifi();
@@ -579,7 +583,7 @@ function setup(d) {
     if (changed.includes('scaleFactor') || changed.includes('bounds')) setTimeout(start, 600);
   });
 
-  return { start, stop, set, refresh, cfg, status, DEFAULTS, MODULES, wins, statePayload, relDesktop, switchDesktop };
+  return { start, stop, set, refresh, cfg, status, DEFAULTS, MODULES, wins, statePayload, relDesktop, switchDesktop, vdMove, vdClean };
 }
 
 module.exports = { setup, DEFAULTS, MODULES };

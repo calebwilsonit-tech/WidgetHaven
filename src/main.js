@@ -1079,7 +1079,7 @@ app.whenReady().then(async () => {
   createWindow();
   for (const rec of store.widgets) createWidgetWindow(rec);
   if (store.settings.tiler && store.settings.tiler.floatApps === 'steamwebhelper, Steam') store.settings.tiler.floatApps = '';
-  tiler = tilerMod.setup({ store, save, palette: () => themes.palette(), log: console.warn });
+  tiler = tilerMod.setup({ store, save, palette: () => themes.palette(), log: console.warn, vd: { move: (h) => bar.vdMove(h), clean: (id) => bar.vdClean(id) } });
   launcher = launcherMod.setup({
     store, save, webPrefs: WEB_PREFS, makeLogo, palette: () => themes.palette(), getFont: () => bar.cfg().font, log: console.warn,
     focusWin: (w) => desktop.focusWindow(desktop.hwndOf(w)),
