@@ -193,6 +193,7 @@
         ${fld('Position', bseg('position', [['top', 'Top'], ['bottom', 'Bottom']]))}
         ${fld('Height', brange('height', 24, 56, 1, 'px'))}
         ${c.style !== 'full' ? fld('Edge gap', brange('gap', 0, 24, 1, 'px')) + fld('Roundness', brange('radius', 0, 28, 1, 'px')) : ''}
+        ${fld('Hover padding', brange('hoverPad', 0, 24, 1, 'px'), 'Space on each side of an icon, so its hover highlight isn\'t tight against it.')}
         ${fld('Look', `<select data-bsel="look">${[['solid', 'Solid'], ['colorful', 'Colorful'], ['outline', 'Outline'], ['underline', 'Underline'], ['minimal', 'Minimal (no background)'], ['neon', 'Neon'], ['soft', 'Soft chips'], ['brutal', 'Brutalist'], ['gradient', 'Gradient'], ['mono', 'Monochrome']].map(([v, l]) => `<option value="${v}" ${c.look === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
         ${fld('Opacity', brange('opacity', 0, 100, 1, '%'))}
         ${fld('Frosted glass', bsw('glass'), 'Blurs your wallpaper behind the bar.')}
@@ -329,7 +330,7 @@
         <div class="f"><label>Light / dark</label><div class="row"><button class="switch ${TH.opts.windowsMode ? 'on' : ''}" id="toWin"></button></div></div>
         <p class="hint">Also switches Windows' own apps and menus to match a theme's light or dark mode.</p></div>
       <div class="group"><h5>A theme per desktop</h5>
-        ${!barOn ? '<p class="hint">Turn on the Haven Bar to give each virtual desktop its own theme. It switches as you move between desktops.</p>'
+        ${!barOn ? '<p class="hint">Turn on the HavenBar to give each virtual desktop its own theme. It switches as you move between desktops.</p>'
           : ds.length ? ds.map((d) => `<div class="f"><label>Desktop ${d.index + 1}</label><div class="row"><select data-dth="${d.id}">${opt(TH.desktopThemes[d.id])}</select></div></div>`).join('') + '<p class="hint">Switching desktops changes the theme automatically.</p>'
             : '<p class="hint">Looking for your desktops…</p>'}
       </div>
@@ -364,7 +365,7 @@
     const segW = (id, val, opts) => `<div class="seg" id="${id}">${opts.map(([v, lb]) => `<button data-v="${v}" class="${String(val) === String(v) ? 'on' : ''}">${lb}</button>`).join('')}</div>`;
     const keyRows = [['Ctrl+Alt+←↑↓→', 'Focus the window in that direction'], ['Ctrl+Alt+Shift+←↑↓→', 'Swap windows'], ['Drag a window onto another', 'Swap them'], ['Ctrl+Alt+F', 'Float / tile the active window'], ['Ctrl+Alt+L', 'Switch layout (dwindle / master)'], ['Ctrl+Alt+Q', 'Close the active window'], ['Ctrl+Alt+Enter', 'Open a terminal'], ['Ctrl+Alt+P', 'Pause / resume tiling'], ['Ctrl+Alt+Z', 'Focus: the active window fills the screen (again to undo)'], ['Drag a window edge', 'Resize it; the neighbours make room'], ['Ctrl+Alt+= / −', 'Grow / shrink the active window'], ['Ctrl+Alt+0', 'Even out all sizes'], ['Ctrl+Alt+1…9', 'Jump to a desktop (with the bar on)'], ['Maximize a window', 'Same as focus mode: it fills the tiled area']];
     $('#wmMain').innerHTML = `
-      <div class="live-head" style="margin-bottom:10px"><div><h2>Tiling windows <small class="beta">beta</small></h2><p class="muted">Haven arranges your app windows side by side with gaps, like Hyprland, and animates them into place. New windows split the space; close one and the rest fill in.</p></div>${sw(t.enabled, 'wmOn')}</div>
+      <div class="live-head" style="margin-bottom:10px"><div><h2>HavenTile <small class="beta">beta</small></h2><p class="muted">Haven arranges your app windows side by side with gaps, like Hyprland, and animates them into place. New windows split the space; close one and the rest fill in.</p></div>${sw(t.enabled, 'wmOn')}</div>
       <div class="sec-h"><h4>Presets</h4></div>
       <div class="tpresets">${TILE_PRESETS.map((pr) => presetCard(pr, t)).join('')}</div>
       <div class="sec-h"><h4>Keyboard</h4></div>
@@ -395,7 +396,7 @@
       </div>
       <div class="group"><h5>App window corners</h5>
         ${segW('wmCorners', t.corners || 'default', [['default', 'Default'], ['round', 'Round'], ['small', 'Small'], ['square', 'Square'], ['bar', 'Match bar']])}
-        <p class="hint">Changes the corners of every app window (Opera, Steam, Explorer…), tiled or not. Windows 11 offers these four shapes. <b>Match bar</b> picks the one closest to your Haven Bar. Back to normal when set to Default or when Haven quits.</p>
+        <p class="hint">Changes the corners of every app window (Opera, Steam, Explorer…), tiled or not. Windows 11 offers these four shapes. <b>Match bar</b> picks the one closest to your HavenBar. Back to normal when set to Default or when Haven quits.</p>
       </div>
       <div class="group"><h5>Leave these alone</h5>
         <input type="text" id="wmIgnore" value="${esc(t.ignore)}" spellcheck="false" style="width:100%">

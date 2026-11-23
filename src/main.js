@@ -796,8 +796,8 @@ function buildTray() {
     { label: 'Settings', click: () => { toggleWindow(true); send('open-settings'); } },
     { type: 'separator' },
     { label: 'Haven Studio…', click: () => studio.openEditor({ tab: 'widgets' }) },
-    { label: 'Haven Bar   (Ctrl+Alt+B)', type: 'checkbox', checked: !!(store.settings.bar && store.settings.bar.enabled), click: (m) => bar.set({ enabled: m.checked }) },
-    { label: 'Tile windows (beta)   Ctrl+Alt+P pauses', type: 'checkbox', checked: !!(tiler && tiler.cfg().enabled), click: (m) => tiler.set({ enabled: m.checked }) },
+    { label: 'HavenBar   (Ctrl+Alt+B)', type: 'checkbox', checked: !!(store.settings.bar && store.settings.bar.enabled), click: (m) => bar.set({ enabled: m.checked }) },
+    { label: 'HavenTile (beta)   Ctrl+Alt+P pauses', type: 'checkbox', checked: !!(tiler && tiler.cfg().enabled), click: (m) => tiler.set({ enabled: m.checked }) },
     tiler && tiler.movedAway() ? { label: 'Bring back windows Haven moved', click: () => tiler.bringBack() } : null,
     tiler && tiler.cfg().enabled ? { label: 'Focus mode   Ctrl+Alt+Z', type: 'checkbox', checked: tiler.focused(), click: () => tiler.toggleFocus() } : null,
     { label: 'App launcher (Win+S)', type: 'checkbox', checked: !!(launcher && launcher.cfg().enabled), click: (m) => launcher.set({ enabled: m.checked }) },
@@ -1126,7 +1126,7 @@ app.whenReady().then(async () => {
   if (bar) bar.refresh();
 });
 
-// When a screen's usable area changes (the Haven Bar or the taskbar reserves or frees a strip), Windows
+// When a screen's usable area changes (the HavenBar or the taskbar reserves or frees a strip), Windows
 // shoves windows out of the way without resizing them, so tiles end up overlapping. Instead, scale every
 // widget's position and size from the old usable area to the new one, keeping the layout intact.
 function refitToWorkAreas() {
@@ -1187,7 +1187,7 @@ function rememberFrac(rec, b) {
   rec.fracDisplay = d.id;
 }
 
-// Matching looks between the Haven Bar and the desktop widgets (colors already match through the theme).
+// Matching looks between the HavenBar and the desktop widgets (colors already match through the theme).
 const LOOK_FROM_BAR = ['opacity', 'glass', 'border', 'radius', 'font', 'style', 'look'];
 function syncLooks() {
   const mode = store.settings.lookSync;

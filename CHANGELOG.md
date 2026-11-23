@@ -3,6 +3,19 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.5.0] — 2026-11-23
+
+### Added
+- **Hover padding** for HavenBar (Studio → HavenBar): how much space each button gets either side of its icon, where the hover highlight shows. Defaults to 10px.
+- **Studio in the main window:** a *Studio* button in the title bar, and a *Studio* section in the sidebar with one-click links to Widgets, HavenBar, HavenTile, Themes and Live wallpaper.
+
+### Changed
+- The bar and the tiling window manager have official names: **HavenBar** and **HavenTile**. Studio's tabs, menus and settings use them.
+
+### Fixed
+- HavenBar's hover highlight sat tight against the icons: buttons were losing their side padding.
+- The hotkey hint in the search box no longer covers the search text; on a narrow window it steps aside.
+
 ## [1.4.1] — 2026-11-23
 
 ### Changed

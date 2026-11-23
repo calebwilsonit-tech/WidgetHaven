@@ -1,4 +1,4 @@
-// A Haven Bar window (one per screen).
+// A HavenBar window (one per screen).
 const api = window.haven;
 let payload = null;
 const view = HavenBar.mount(document.body, {

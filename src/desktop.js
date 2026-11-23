@@ -323,7 +323,7 @@ function foregroundState(displaysPhys) {
   } catch { return null; }
 }
 
-// ------------------------------------------------------------------ Haven Bar helpers
+// ------------------------------------------------------------------ HavenBar helpers
 const KEYUP = 2, EXT = 1;
 const EXTENDED = new Set([0x25, 0x26, 0x27, 0x28, 0x5B, 0x5C]);
 // Press a key combo, e.g. [0x11, 0x5B, 0x27] = Ctrl+Win+Right.

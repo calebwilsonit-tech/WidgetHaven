@@ -1,4 +1,4 @@
-// Ready-made Haven Bar looks, inspired by popular Linux bar setups. Each sets the bar's style and layout,
+// Ready-made HavenBar looks, inspired by popular Linux bar setups. Each sets the bar's style and layout,
 // and pairs with a theme (applied too unless you untick "Use its colors").
 (function () {
   const L = (left, center, right) => ({ left, center, right });

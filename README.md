@@ -1,8 +1,8 @@
 # Haven — your Windows desktop, your way
 
-Haven turns the Windows desktop into something you design. It organizes your apps, games, files and links in glassy widgets. It adds a Hyprland-style status bar, creative clocks, live wallpapers and one-click themes, plus an optional tiling window manager. Colors follow your wallpaper automatically, or come from a theme you pick.
+Haven turns the Windows desktop into something you design. It organizes your apps, games, files and links in glassy widgets. It adds a Hyprland-style status bar (HavenBar), creative clocks, live wallpapers and one-click themes, plus an optional tiling window manager (HavenTile). Colors follow your wallpaper automatically, or come from a theme you pick.
 
-![Haven Bar looks](docs/screenshots/bar-looks.png)
+![HavenBar looks](docs/screenshots/bar-looks.png)
 
 ## Install
 
@@ -35,9 +35,9 @@ Uninstall from **Settings → Apps → Installed apps → Haven**. Your favorite
 - **Layouts:** Grid, Side column, Bottom dock, Gamer, Focus and Corner, or save your own. Widgets refit themselves when the bar or taskbar changes the usable screen space.
 - **Readable anywhere:** see-through widgets read the patch of wallpaper behind them and choose readable text.
 
-### Haven Bar
+### HavenBar
 
-![Haven Bar settings](docs/screenshots/studio-bar.png)
+![HavenBar settings](docs/screenshots/studio-bar.png)
 
 A status bar in the style of Hyprland and Waybar setups (`Ctrl+Alt+B` turns it on or off).
 
@@ -80,11 +80,11 @@ One click recolors the bar, Haven, your Studio widgets and the live wallpaper.
   - Widgets anchor to the center, top middle or any corner and stay put.
 - **Live wallpaper:** animated scenes (Aurora, Liquid, Synthwave, Night sky, Bokeh), rain, snow or fireflies over your own wallpaper, or a looping video or GIF. It runs behind your desktop icons and pauses for games and fullscreen apps.
 
-### Tiling windows (beta) and the launcher
+### HavenTile (beta) and the launcher
 
-![Tiling windows](docs/screenshots/studio-windows.png)
+![HavenTile](docs/screenshots/studio-windows.png)
 
-Hyprland-style automatic tiling for Windows. It's off by default; turn it on in Studio → Windows, the tray menu or the bar's right-click menu.
+HavenTile is Hyprland-style automatic tiling for Windows. It's off by default; turn it on in Studio → HavenTile, the tray menu or the bar's right-click menu.
 
 - **Layouts and presets:** dwindle and master layouts with adjustable gaps, plus presets (Hyprland default, Tight, Airy, Focus, Wide master, Calm, Seamless, No animation).
 - **Smooth movement:** windows glide into place, and the active window gets an accent border that fades in.

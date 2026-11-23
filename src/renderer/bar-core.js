@@ -1,4 +1,4 @@
-// Haven Bar renderer, shared by the bar windows (bar.html) and the live preview in Haven Studio.
+// HavenBar renderer, shared by the bar windows (bar.html) and the live preview in Haven Studio.
 (function () {
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const P = {
@@ -57,6 +57,7 @@
       st.setProperty('--gap', (c.style === 'full' ? 0 : c.gap) + 'px');
       st.setProperty('--r', (c.style === 'full' ? 0 : c.radius) + 'px');
       st.setProperty('--op', String(c.opacity / 100));
+      st.setProperty('--hp', (Number.isFinite(+c.hoverPad) ? +c.hoverPad : 10) + 'px');
       st.setProperty('--fs', c.fontSize + 'px');
       st.setProperty('--font', `"${c.font}", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif`);
       const pal = c.look === 'mono' ? { ...p, accent: p.text, accent2: p.subtext } : p;

@@ -1,4 +1,4 @@
-// Haven Bar (main process): a status bar that reserves its own strip of the screen (like the taskbar),
+// HavenBar (main process): a status bar that reserves its own strip of the screen (like the taskbar),
 // with desktop/workspace buttons, open apps, clock, now playing, system stats and quick buttons.
 const { app, BrowserWindow, ipcMain, screen, globalShortcut, dialog, Menu, shell } = require('electron');
 const path = require('path');
@@ -10,7 +10,7 @@ const DEFAULTS = {
   enabled: false,
   position: 'top',          // 'top' | 'bottom'
   style: 'islands',         // 'islands' | 'zones' | 'floating' | 'full'
-  height: 34, gap: 8, radius: 12, opacity: 80, glass: true, border: true, shadow: true, glow: false,
+  height: 34, gap: 8, radius: 12, hoverPad: 10, opacity: 80, glass: true, border: true, shadow: true, glow: false,
   font: 'Space Grotesk', fontSize: 13,
   displays: 'primary',      // 'primary' | 'all'
   hideTaskbar: false,       // (old setting, replaced by taskbar)
@@ -183,7 +183,7 @@ function setup(d) {
       x: b.x, y: c.position === 'bottom' ? b.y + b.height - th : b.y, width: b.width, height: th,
       frame: false, show: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, skipTaskbar: true,
       resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false, focusable: false,
-      alwaysOnTop: true, icon: makeLogo(64), title: 'Haven Bar', webPreferences: { ...webPrefs, backgroundThrottling: false },
+      alwaysOnTop: true, icon: makeLogo(64), title: 'HavenBar', webPreferences: { ...webPrefs, backgroundThrottling: false },
     });
     w.__display = disp.id;
     w.loadFile(path.join(__dirname, 'renderer', 'bar.html'), { query: { display: String(disp.id) } });
@@ -635,10 +635,10 @@ function setup(d) {
       { label: 'Style', submenu: [['islands', 'Islands'], ['zones', 'Three pills'], ['floating', 'Floating bar'], ['full', 'Edge to edge']].map(([v, l]) => ({ label: l, type: 'radio', checked: c.style === v, click: () => set({ style: v }) })) },
       { label: 'Windows taskbar', submenu: [['show', 'Show it'], ['autohide', 'Auto-hide (shows at the screen edge)'], ['hidden', 'Hide it completely']].map(([v, l]) => ({ label: l, type: 'radio', checked: c.taskbar === v, click: () => set({ taskbar: v }) })) },
       { type: 'separator' },
-      d.getTiler && d.getTiler() ? { label: 'Tile windows (beta)', type: 'checkbox', checked: !!d.getTiler().cfg().enabled, click: (m) => d.getTiler().set({ enabled: m.checked }) } : null,
+      d.getTiler && d.getTiler() ? { label: 'HavenTile (beta)', type: 'checkbox', checked: !!d.getTiler().cfg().enabled, click: (m) => d.getTiler().set({ enabled: m.checked }) } : null,
       d.getTiler && d.getTiler() && d.getTiler().cfg().enabled ? { label: 'Focus the active window   (Ctrl+Alt+Z)', type: 'checkbox', checked: d.getTiler().focused(), click: () => d.getTiler().toggleFocus() } : null,
       d.getTiler && d.getTiler() && d.getTiler().movedAway() ? { label: 'Bring back windows Haven moved', click: () => d.getTiler().bringBack() } : null,
-      { label: 'Tiling settings…', click: () => openStudio('wm') },
+      { label: 'HavenTile settings…', click: () => openStudio('wm') },
       { type: 'separator' },
       { label: 'Turn off the bar   (Ctrl+Alt+B)', click: () => set({ enabled: false }) },
     ];

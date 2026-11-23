@@ -1,4 +1,4 @@
-/* Haven Bar — shared by the bar windows and the Studio preview. Everything is scoped to .hb. */
+/* HavenBar — shared by the bar windows and the Studio preview. Everything is scoped to .hb. */
 .hb {
   --h: 34px; --gap: 8px; --r: 12px; --op: .8; --fs: 13px;
   --base: #1e1e2e; --text: #cdd6f4; --subtext: #a6adc8; --accent: #cba6f7; --accent2: #89b4fa; --surface: #313244;
@@ -229,3 +229,7 @@
 .hb.square .hb-ws .w.on { min-width: calc(var(--h) - 8px); }
 .hb.square .hb-ws.dots .w { border-radius: 1px; }
 .hb.square .hb-tasks .t::after { border-radius: 0; }
+
+/* Hover padding (Studio → HavenBar): the space each side of a button, where its hover highlight shows.
+   Needs .hb in front to beat the reset on .hb button. */
+.hb .hb-btn, .hb .hb-tasks .t { padding-left: var(--hp, 10px); padding-right: var(--hp, 10px); }

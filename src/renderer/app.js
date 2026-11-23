@@ -133,6 +133,14 @@ function navCount(v) {
   return n ? n : '';
 }
 
+// Haven Studio, one click from the sidebar: [tab, icon, label, tooltip].
+const STUDIO_LINKS = [
+  ['widgets', 'sparkle', 'Widgets', 'Haven Studio: clocks, weather and other desktop widgets'],
+  ['bar', 'min', 'HavenBar', 'HavenBar: the bar along the top of your screen'],
+  ['wm', 'apps', 'HavenTile', 'HavenTile: automatic window tiling'],
+  ['themes', 'layers', 'Themes', 'Colors and looks for Haven, HavenBar and widgets'],
+  ['live', 'play', 'Live wallpaper', 'Animated wallpapers'],
+];
 function renderSidebar() {
   const sb = $('#sidebar');
   const nav = VIEWS.map((v, i) => `
@@ -150,6 +158,8 @@ function renderSidebar() {
     <div class="side-h"><span>Groups</span><button id="addGroup" title="New group">${svg('plus')}</button></div>
     ${groups || `<button class="nav" id="addGroup2">${svg('plus')}<span class="label">New group</span></button>`}
     <div class="side-spacer"></div>
+    <div class="side-h"><span>Studio</span></div>
+    ${STUDIO_LINKS.map(([tab, icon, label, tip]) => `<button class="nav" data-studio="${tab}" title="${tip}">${svg(icon)}<span class="label">${label}</span></button>`).join('')}
     <div class="side-card"><b>${fav ? `${fav} favorite${fav > 1 ? 's' : ''}` : 'Tip'}</b>${fav ? 'Drag tiles onto Home or a group to organize them.' : 'Right-click anything and choose <i>Add to Favorites</i>.'}</div>`;
 }
 
@@ -161,6 +171,8 @@ function renderStatus() {
     <span class="grow"></span>
     <span>Drop files anywhere to add</span>${hk ? `<span>${hk}</span>` : ''}`;
   $('#hotkeyHint').textContent = S.settings.hotkey || '';
+  // The search text stops before the hint instead of running under it.
+  requestAnimationFrame(() => { const k = $('#hotkeyHint'); $('#searchWrap').style.setProperty('--kbd-w', (k && k.textContent ? k.offsetWidth : 0) + 'px'); });
   $('#btnPin').classList.toggle('on', !!S.settings.alwaysOnTop);
 }
 
@@ -729,15 +741,15 @@ function openSettings(tab) {
       + row('Custom accent', custom ? '' : 'Picking one turns off wallpaper matching', `<div class="swatches">${ACCENTS.map((c) => `<button data-accent="${c}" class="${custom && c === s.accent ? 'on' : ''}" style="background:${c}"></button>`).join('')}<input type="color" id="accentCustom" value="${esc(s.accent)}" title="Custom color"></div>`)
       + row('Transparency', `Opacity ${s.opacity ?? 72}% · ${s.glass ? 'frosted blur' : 'clear, no blur'} — widgets can override this`, `<button class="btn" id="openTransparency">Adjust…</button>`)
       + row('Solid Haven window', 'Keeps the main Haven window opaque, even when your desktop widgets are see-through', sw('hubSolid', s.hubSolid !== false))
-      + row('Widget corners', `${s.widgetRadius ?? 10}px · from square (0) to very round${s.lookSync === 'widgets' ? ' · now following the Haven Bar' : ''}`, `<input type="range" min="0" max="28" step="1" value="${s.widgetRadius ?? 10}" id="cornerSize">`)
+      + row('Widget corners', `${s.widgetRadius ?? 10}px · from square (0) to very round${s.lookSync === 'widgets' ? ' · now following the HavenBar' : ''}`, `<input type="range" min="0" max="28" step="1" value="${s.widgetRadius ?? 10}" id="cornerSize">`)
       + row('Tile size', '', `<input type="range" min="64" max="140" step="4" value="${s.tileSize}" id="tileSize">`);
   } else if (settingsTab === 'widgets') {
     const list = S.widgets;
     body = row('Haven Studio', 'Design your own clocks, dates, countdowns and text for the desktop', `<button class="btn primary" id="doStudio">Open Studio</button>`)
       + row('Live wallpaper', 'Animated scenes, videos or GIFs behind your desktop icons', `<button class="btn" id="doLive">Set up…</button>`)
-      + row('Haven Bar', 'A status bar with desktop buttons, open apps, music and system stats (Ctrl+Alt+B)', `<button class="btn" id="doBar">Set up…</button>`)
+      + row('HavenBar', 'A status bar with desktop buttons, open apps, music and system stats (Ctrl+Alt+B)', `<button class="btn" id="doBar">Set up…</button>`)
       + row('Themes', 'Switch the whole look in one click, or match your wallpaper', `<button class="btn" id="doThemes">Choose…</button>`)
-      + row('Tiling windows (beta)', 'Arrange app windows side by side like Hyprland, plus the Win+S launcher', `<button class="btn" id="doWm">Set up…</button>`)
+      + row('HavenTile (beta)', 'Tiling: arrange app windows side by side like Hyprland, plus the Win+S launcher', `<button class="btn" id="doWm">Set up…</button>`)
       + row('Split into widgets', 'Puts Favorites, Apps, Games, Files, Folders and Links on your desktop as separate widgets in a tidy grid', `<button class="btn" id="doSplit">Split</button>`)
       + row('Pop out one tab', 'Add a single widget for any tab or group', `<button class="btn" id="doPop">Choose…</button>`)
       + row('Show main Haven window', 'Keep the full window alongside your widgets', sw('hubVisible', s.hubVisible !== false))
@@ -889,7 +901,7 @@ function widgetsMenu(x, y) {
     { label: 'Customize look…', icon: 'sparkle', action: () => customizePanel() },
     { label: 'Haven Studio — clocks & more…', icon: 'clock', action: () => api.studioOpen({ tab: 'widgets' }) },
     { label: 'Live wallpaper…', icon: 'play', action: () => api.studioOpen({ tab: 'live' }) },
-    { label: 'Haven Bar & themes…', icon: 'layers', action: () => api.studioOpen({ tab: 'bar' }) },
+    { label: 'HavenBar & themes…', icon: 'layers', action: () => api.studioOpen({ tab: 'bar' }) },
     { label: S.settings.lockPosition ? 'Unlock positions' : 'Lock positions', icon: 'pin', action: () => api.setSettings({ lockPosition: !S.settings.lockPosition }) },
   ].filter(Boolean), x, y);
 }
@@ -930,7 +942,7 @@ function widgetOptions(x, y) {
     { label: 'Add another widget', icon: 'plus', sub: viewChoices(null, popOut) },
     { label: 'Haven Studio — clocks & more…', icon: 'clock', action: () => api.studioOpen({ tab: 'widgets' }) },
     { label: 'Live wallpaper…', icon: 'play', action: () => api.studioOpen({ tab: 'live' }) },
-    { label: 'Haven Bar & themes…', icon: 'layers', action: () => api.studioOpen({ tab: 'bar' }) },
+    { label: 'HavenBar & themes…', icon: 'layers', action: () => api.studioOpen({ tab: 'bar' }) },
     '-',
     { label: 'Open main Haven', icon: 'home', action: () => api.showHub() },
     { label: 'Settings', icon: 'gear', action: () => openSettings() },
@@ -1380,6 +1392,7 @@ function bind() {
   $('#btnMin').onclick = () => api.minimize();
   $('#btnClose').onclick = () => api.hide();
   $('#btnSettings').onclick = () => openSettings();
+  $('#btnStudio').onclick = () => api.studioOpen({ tab: 'widgets' });
   $('#btnWidgets').onclick = (e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); widgetsMenu(r.left - 180, r.bottom + 4); };
   $('#btnPin').onclick = async () => { ingest(await api.setSettings({ alwaysOnTop: !S.settings.alwaysOnTop })); renderStatus(); toast(S.settings.alwaysOnTop ? 'Pinned on top' : 'Unpinned'); };
   $('.titlebar').addEventListener('dblclick', (e) => { if (!IS_WIDGET && S.settings.mode !== 'widget' && !e.target.closest('button,input')) api.maximize(); });
@@ -1399,6 +1412,8 @@ function bind() {
     const t = e.target;
     const nav = t.closest('#sidebar [data-view]');
     if (nav) return go(nav.dataset.view);
+    const stu = t.closest('#sidebar [data-studio]');
+    if (stu) return api.studioOpen({ tab: stu.dataset.studio });
     if (t.closest('#addGroup, #addGroup2')) return editGroup(null);
     const goBtn = t.closest('[data-go]');
     if (goBtn && !t.closest('.modal')) return go(goBtn.dataset.go);

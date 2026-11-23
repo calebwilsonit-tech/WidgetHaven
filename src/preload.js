@@ -60,7 +60,7 @@ contextBridge.exposeInMainWorld('haven', {
   liveSet: invoke('live:set'),
   livePick: invoke('live:pick'),
   liveGet: invoke('live:get'),
-  // Haven Bar + themes
+  // HavenBar + themes
   barGet: invoke('bar:get'),
   barSet: invoke('bar:set'),
   barAction: invoke('bar:action'),

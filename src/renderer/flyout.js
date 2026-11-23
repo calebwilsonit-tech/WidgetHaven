@@ -1,4 +1,4 @@
-// Haven Bar panels: one window, re-filled for whichever bar button was clicked.
+// HavenBar panels: one window, re-filled for whichever bar button was clicked.
 const api = window.haven;
 const panel = document.getElementById('panel');
 const ic = (n) => HavenBar.icon(n);

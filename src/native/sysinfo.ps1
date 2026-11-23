@@ -1,4 +1,4 @@
-# Haven Bar helper: prints one JSON line per tick with open windows (+ which virtual desktop each is on),
+# HavenBar helper: prints one JSON line per tick with open windows (+ which virtual desktop each is on),
 # the virtual desktop list, master volume and what's playing. Reads commands on stdin; exits when it closes.
 $ErrorActionPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
