@@ -235,6 +235,7 @@ function setup({ store, save, palette, log }) {
   // Some apps (Steam, for one) refuse to shrink below their own minimum size. If a window ends up bigger
   // than its slot, float it centered and tile everything else around it, so nothing overlaps.
   const minSize = new Map(); // window -> the smallest size it accepted (apps with a minimum size)
+  const autoFloat = new Set(); // floated only because there wasn't room; they rejoin when space frees up
   function checkFit(jobs) {
     let changed = false;
     for (const j of jobs) {
@@ -242,13 +243,15 @@ function setup({ store, save, palette, log }) {
       const e = ext(j.h), w = e.right - e.left, h = e.bottom - e.top;
       const to = slots.get(j.h) || j.to; // its current tile (the layout may have changed since)
       if (w <= to.width + 12 && h <= to.height + 12) continue;
-      if (!minSize.has(j.h)) {
-        // Make room: remember its minimum and move it to the first (biggest) tile, then lay out again.
-        minSize.set(j.h, { w, h });
+      // Make room: remember its minimum and move it to the first (roomiest) tile, then lay out again.
+      // Floating is the last resort: only when it's already in that tile, sized for it, and still won't fit.
+      const known = minSize.get(j.h);
+      const first = [...order.values()].some((list) => list[0] === j.h);
+      minSize.set(j.h, { w: Math.max(w, known ? known.w : 0), h: Math.max(h, known ? known.h : 0) });
+      if (!first) {
         for (const list of order.values()) { const i = list.indexOf(j.h); if (i > 0) { list.splice(i, 1); list.unshift(j.h); } }
-      } else {
-        // Even the roomiest layout can't hold it: float it, centered and fully on screen.
-        floating.add(j.h); centerFloat(j.h);
+      } else if (known && w <= known.w && h <= known.h) {
+        floating.add(j.h); autoFloat.add(j.h); centerFloat(j.h);
       }
       changed = true;
     }
@@ -346,6 +349,7 @@ function setup({ store, save, palette, log }) {
       if (focusWin && h !== focusWin && tiledNow.has(h)) { focusWin = 0; soon(10); }
       borders(); return;
     }
+    if ((ev === 0x8001 || ev === 0x8003 || ev === 0x0016) && autoFloat.size && tiledNow.has(h)) { for (const f of autoFloat) floating.delete(f); autoFloat.clear(); }
     soon(ev === 0x8002 || ev === 0x8018 ? 60 : 30);
   }
   // Some apps (Opera, for one) resize themselves after being placed, e.g. back to a size they remember.
@@ -462,6 +466,7 @@ function setup({ store, save, palette, log }) {
   function toggleFloat() {
     const h = Number(k.GetForegroundWindow());
     if (!h) return;
+    autoFloat.delete(h);
     if (floating.has(h)) floating.delete(h);
     else {
       floating.add(h);

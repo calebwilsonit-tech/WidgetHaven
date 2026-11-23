@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.12] — 2026-11-22
+
+### Changed
+- Tiling no longer pops windows out when they don't fit their tile. A window that can't shrink is moved back to the first, roomiest tile, sized for it, every time (after a swap or a new window too). It only floats when there truly isn't room for it at all, and it rejoins the layout as soon as space frees up.
+
 ## [1.3.11] — 2026-11-22
 
 ### Fixed
