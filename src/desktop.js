@@ -203,6 +203,19 @@ function allowForeground() {
 // Move a window to a DIP position WITHOUT touching its size. Electron's setBounds/setPosition round
 // through DIP↔pixel on every call at fractional scaling (125%/150%), which makes the size creep while
 // dragging. Moving natively in physical pixels with SWP_NOSIZE can't change the size.
+// Where a window really is (DIPs). Electron's getBounds() can be stale after Windows moves a window itself.
+function realBounds(win) {
+  const { screen } = require('electron');
+  if (!user32 || !user32.GetWindowRect) return win.getBounds();
+  try { const r = {}; user32.GetWindowRect(hwndOf(win), r); return screen.screenToDipRect(win, { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top }); } catch { return win.getBounds(); }
+}
+// Place a window natively (physical pixels), so the move always happens even if Electron thinks it's already there.
+function placeNative(win, b) {
+  const { screen } = require('electron');
+  win.setBounds(b);
+  if (!user32) return;
+  try { const p = screen.dipToScreenRect(win, b); user32.SetWindowPos(hwndOf(win), 0, p.x, p.y, p.width, p.height, 0x4 /* NOZORDER */ | SWP.NOACTIVATE); } catch {}
+}
 function moveTo(win, x, y) {
   const { screen } = require('electron');
   if (!user32) { win.setPosition(Math.round(x), Math.round(y)); return; }
@@ -403,6 +416,6 @@ function broadcastThemeChange() {
 module.exports = {
   keyCombo, focusWindow, minimizeWindow, closeWindow, lockWorkstation, foregroundHwnd, setToolWindow,
   appbarSet, appbarRemove, appbarRemoveAll, taskbarAutoHide, showTaskbars, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
-  pin, sendToBottom, allowForeground, keyDown, moveTo, watchWallpaper, readWallpaper, available: () => !!user32,
+  pin, sendToBottom, allowForeground, keyDown, moveTo, realBounds, placeNative, watchWallpaper, readWallpaper, available: () => !!user32,
   attachToWallpaper, refreshWallpaper, foregroundState, isWindowAlive, hwndOf, wallpaperFile,
 };

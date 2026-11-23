@@ -140,13 +140,25 @@ function renderClock() {
   const d = new Date();
   el.innerHTML = `${esc(fmt(d, (P.config.clock && P.config.clock.time) || 'h:mm'))}<small>${String(d.getSeconds()).padStart(2, '0')}</small>`;
 }
-function renderNotes(list) {
+// Notifications slide away one after another, then their space folds up.
+function bye(notes) {
+  return new Promise((done) => {
+    if (!notes.length) return done();
+    notes.forEach((n, i) => { n.style.animationDelay = Math.min(i, 12) * 35 + 'ms'; n.classList.add('bye'); });
+    const last = notes[Math.min(notes.length - 1, 12)];
+    let fin = false;
+    const end = () => { if (!fin) { fin = true; done(); } };
+    last.addEventListener('animationend', (e) => { if (e.animationName === 'fold') end(); });
+    setTimeout(end, 900);
+  });
+}
+function renderNotes(list, cleared) {
   const box = $('#notes');
   if (!box) return;
   list = (list || []).slice().sort((a, b) => b.time - a.time);
   $('#clr').hidden = !list.length;
   box.innerHTML = list.length ? list.map((n) => `<div class="note"><div class="meta"><b>${esc(n.app || 'App')}</b><span>${ago(n.time)}</span></div>${n.title ? `<div class="tt">${esc(n.title)}</div>` : ''}${n.body ? `<div class="bd">${esc(n.body)}</div>` : ''}<button class="x" data-nx="${n.id}" title="Dismiss">${icx('x')}</button></div>`).join('')
-    : `<div class="empty">${ic('bell')}<b>You're all caught up</b><div class="small">New notifications will show up here.</div></div>`;
+    : `<div class="empty ${cleared ? 'cleared' : ''}">${ic('bell')}<b>You're all caught up</b><div class="small">New notifications will show up here.</div></div>`;
 }
 function renderMeters() {
   const box = $('#meters');
@@ -237,8 +249,22 @@ panel.addEventListener('click', async (e) => {
   if ((el = t('[data-cal]'))) { const v = +el.dataset.cal; const d = new Date(); calMonth = v === 0 ? new Date(d.getFullYear(), d.getMonth(), 1) : new Date(calMonth.getFullYear(), calMonth.getMonth() + v, 1); renderCal(); fit(); return; }
   if ((el = t('[data-media]'))) return api.barAction('media', el.dataset.media);
   if ((el = t('[data-ib="vol"]'))) return api.barAction('mute');
-  if ((el = t('[data-nx]'))) { el.closest('.note').style.opacity = '.3'; return renderNotes(await api.flyoutDo('noteRemove', el.dataset.nx)); }
-  if ((el = t('#clr'))) return renderNotes(await api.flyoutDo('noteClear'));
+  if ((el = t('[data-nx]'))) {
+    const note = el.closest('.note');
+    const req = api.flyoutDo('noteRemove', el.dataset.nx);
+    await bye([note]);
+    note.remove();
+    const left = await req;
+    if (!(left || []).length) renderNotes([], true);
+    return;
+  }
+  if ((el = t('#clr'))) {
+    el.disabled = true;
+    const req = api.flyoutDo('noteClear');
+    await bye($$('.note'));
+    renderNotes(await req, true);
+    return;
+  }
   if ((el = t('[data-wcon]'))) { el.textContent = 'Connecting…'; await api.flyoutDo('wifiConnect', el.dataset.wcon); setTimeout(() => open(P), 2500); return; }
   if ((el = t('[data-wdis]'))) { await api.flyoutDo('wifiDisconnect'); setTimeout(() => open(P), 1500); return; }
   if ((el = t('[data-theme]'))) { await api.barAction('theme', el.dataset.theme); return; }

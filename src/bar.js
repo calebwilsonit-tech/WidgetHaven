@@ -50,7 +50,7 @@ const CB_MSG = 0x8000 + 0x2A; // WM_APP + n: app bar notifications
 const VK = { ctrl: 0x11, win: 0x5B, alt: 0x12, left: 0x25, right: 0x27, d: 0x44, f4: 0x73, a: 0x41, n: 0x4E, b: 0x42, enter: 0x0D, esc: 0x1B };
 
 function setup(d) {
-  const { store, save, desktop, webPrefs, makeLogo, themes, wallpaperURL, customFonts, launchItem, toggleHub, openStudio, favorites, onTaskbar, log } = d;
+  const { store, save, desktop, webPrefs, makeLogo, themes, wallpaperURL, customFonts, launchItem, toggleHub, openStudio, favorites, onTaskbar, onReserved, log } = d;
   const S = () => store.settings;
   const cfg = () => {
     const b = { ...DEFAULTS, ...(S().bar || {}) };
@@ -189,7 +189,8 @@ function setup(d) {
     });
     w.hookWindowMessage(CB_MSG, (wp, lp) => {
       const code = wp.length >= 8 ? Number(wp.readBigUInt64LE()) : wp.readUInt32LE();
-      if (code === 1 /* ABN_POSCHANGED */) setTimeout(() => !w.isDestroyed() && reserve(w), 50);
+      // Our own reservation also triggers this; only react to other app bars (e.g. the taskbar moving).
+      if (code === 1 /* ABN_POSCHANGED */ && Date.now() - (w.__reservedAt || 0) > 1500) setTimeout(() => !w.isDestroyed() && reserve(w), 50);
       if (code === 2 /* ABN_FULLSCREENAPP */) checkFullscreen();
     });
     w.on('closed', () => { if (wins.get(disp.id) === w) wins.delete(disp.id); });
@@ -202,7 +203,10 @@ function setup(d) {
     const disp = screen.getAllDisplays().find((x) => x.id === w.__display) || screen.getPrimaryDisplay();
     const phys = physOf(disp);
     const th = Math.round(thicknessDip(c) * disp.scaleFactor);
+    w.__reservedAt = Date.now();
     const r = desktop.appbarSet(w, c.position, phys, th, CB_MSG);
+    const sig = r ? [r.x, r.y, r.width, r.height].join() : '';
+    if (sig !== w.__resSig) { w.__resSig = sig; if (onReserved) onReserved(); }
     if (!r) {
       const b = disp.bounds, t = thicknessDip(c);
       w.setBounds({ x: b.x, y: c.position === 'bottom' ? b.y + b.height - t : b.y, width: b.width, height: t });
@@ -361,6 +365,7 @@ function setup(d) {
   // was and always puts it back when the bar is turned off or Haven quits.
   let tbTimer = null;
   function applyTaskbar() {
+    if (onReserved) onReserved();
     const c = cfg();
     const mode = c.enabled ? c.taskbar : 'show';
     const st = S().barTaskbar || {};

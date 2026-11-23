@@ -3,6 +3,18 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.2] — 2026-11-22
+
+### Added
+- Notifications slide away one after another when you dismiss them or press **Clear all**, and the bell rings in when the list is empty.
+
+### Changed
+- Even spacing for desktop widgets: the gap to the screen edges (and to the bar) now matches the gap between widgets, using your *Gap between widgets* setting. It stays even when the bar or taskbar changes the usable area.
+
+### Fixed
+- Widget tiles could still overlap after the bar reserved its strip, because Windows moved them again after Haven had refit them. Haven now refits once the reservation settles, and places windows where Windows really has them.
+- The bar re-reserved its strip whenever it was notified of its own change, causing needless repeated work.
+
 ## [1.3.1] — 2026-11-22
 
 ### Added

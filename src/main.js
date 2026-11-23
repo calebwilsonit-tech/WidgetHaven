@@ -994,6 +994,7 @@ ipcMain.handle('onboarded', () => { store.onboarded = true; save(); return true;
 ipcMain.handle('settings:set', async (_, patch) => {
   const prev = { ...store.settings };
   store.settings = { ...store.settings, ...patch };
+  if (patch.snap && (patch.snap.gap ?? null) !== ((prev.snap || {}).gap ?? null)) setTimeout(refitToWorkAreas, 50);
   let hotkeyOk = true;
   if (patch.hotkey !== undefined && patch.hotkey !== prev.hotkey) {
     hotkeyOk = applyHotkey(patch.hotkey);
@@ -1062,6 +1063,8 @@ app.whenReady().then(async () => {
     wallpaperURL: () => studio.wallpaperURL(), customFonts: () => studio.fontsList(),
     launchItem: (id) => launch(id), toggleHub: () => toggleWindow(), openStudio: (tab) => studio.openEditor({ tab }),
     setLive: (on) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: on }; save(); live.update(); studio.notifyEditor(); },
+    // Windows shoves windows out of the bar's strip a moment after it's reserved; refit after that.
+    onReserved: (() => { let ts = []; return () => { ts.forEach(clearTimeout); ts = [250, 1000, 2200].map((ms) => setTimeout(refitToWorkAreas, ms)); }; })(),
     favorites: () => store.favorites.map((id) => library.get(id)).filter(Boolean).map((it) => ({ id: it.id, name: it.customName || it.name, icon: 'haven://icon/' + encodeURIComponent(it.id) + '?v=hd' })),
   });
   screen.on('display-metrics-changed', () => {
@@ -1100,24 +1103,53 @@ app.whenReady().then(async () => {
 // widget's position and size from the old usable area to the new one, keeping the layout intact.
 function refitToWorkAreas() {
   // Each widget remembers where it sits as a share of its screen's usable area (rec.frac), set whenever
-  // you move or resize it. When the usable area changes, it's placed from that share, so repeated
-  // changes never drift and tiles never end up overlapping.
+  // you move or resize it. When the usable area changes (the bar, the taskbar), every widget is placed from
+  // that share, then the gaps are evened out: the space to the screen edges matches the space between
+  // widgets (your "Gap between widgets" setting). Repeated changes never drift or overlap.
   const displays = screen.getAllDisplays();
   const dispOf = (b) => displays.find((d) => { const cx = b.x + b.width / 2, cy = b.y + b.height / 2; return cx >= d.bounds.x && cx < d.bounds.x + d.bounds.width && cy >= d.bounds.y && cy < d.bounds.y + d.bounds.height; });
+  const G = Math.max(0, Math.round((snapOpts().gap ?? 12)));
   let changed = false;
-  const place = (rec, w, isHub) => {
+  const plan = new Map(); // display id -> [{rec, r:{l,t,r,b}}]
+  for (const rec of store.widgets) {
     const b = rec.bounds;
-    if (!b) return;
+    if (!b) continue;
     const d = (rec.fracDisplay && displays.find((x) => x.id === rec.fracDisplay)) || dispOf(b);
-    if (!d) return;
-    if (!rec.frac) { rememberFrac(rec, b); changed = true; return; }
+    if (!d) continue;
+    if (!rec.frac) { rememberFrac(rec, b); changed = true; }
     const a = d.workArea, f = rec.frac;
-    const nb = { x: Math.round(a.x + f.x * a.width), y: Math.round(a.y + f.y * a.height), width: Math.max(260, Math.round(f.w * a.width)), height: Math.max(200, Math.round(f.h * a.height)) };
-    if (nb.x === b.x && nb.y === b.y && nb.width === b.width && nb.height === b.height) return;
-    rec.bounds = nb; changed = true;
-    if (w && !w.isDestroyed() && !(isHub && (!isWidget() || w.isMaximized()))) { w.__refit = true; w.setBounds(nb); w.__refit = false; }
-  };
-  for (const rec of store.widgets) place(rec, widgetWins.get(rec.id));
+    const x = a.x + f.x * a.width, y = a.y + f.y * a.height;
+    if (!plan.has(d.id)) plan.set(d.id, { a, items: [] });
+    plan.get(d.id).items.push({ rec, r: { l: x, t: y, r: x + f.w * a.width, b: y + f.h * a.height } });
+  }
+  for (const { a, items } of plan.values()) {
+    const NEAR = 48; // within this, an edge counts as "against the screen edge" or "next to a neighbour"
+    const A = { l: a.x, t: a.y, r: a.x + a.width, b: a.y + a.height };
+    for (const { r } of items) {
+      if (Math.abs(r.l - A.l) < NEAR) r.l = A.l + G;
+      if (Math.abs(r.t - A.t) < NEAR) r.t = A.t + G;
+      if (Math.abs(A.r - r.r) < NEAR) r.r = A.r - G;
+      if (Math.abs(A.b - r.b) < NEAR) r.b = A.b - G;
+    }
+    const overlap = (p, q, a1, a2) => Math.min(p[a2], q[a2]) - Math.max(p[a1], q[a1]);
+    for (const p of items) for (const q of items) {
+      if (p === q) continue;
+      // q directly below p (sharing a column): even gap between them
+      if (overlap(p.r, q.r, 'l', 'r') > 40 && q.r.t >= p.r.t && Math.abs(q.r.t - p.r.b) < NEAR) { const mid = (p.r.b + q.r.t) / 2; p.r.b = mid - G / 2; q.r.t = mid + G / 2; }
+      // q directly right of p (sharing a row)
+      if (overlap(p.r, q.r, 't', 'b') > 40 && q.r.l >= p.r.l && Math.abs(q.r.l - p.r.r) < NEAR) { const mid = (p.r.r + q.r.l) / 2; p.r.r = mid - G / 2; q.r.l = mid + G / 2; }
+    }
+    for (const { rec, r } of items) {
+      const nb = { x: Math.round(r.l), y: Math.round(r.t), width: Math.max(260, Math.round(r.r - r.l)), height: Math.max(200, Math.round(r.b - r.t)) };
+      const w = widgetWins.get(rec.id);
+      // Compare with where the window really is: Windows may have shoved it since we last placed it.
+      const cur = w && !w.isDestroyed() ? desktop.realBounds(w) : rec.bounds;
+      const near = (p, q) => Math.abs(p.x - q.x) <= 1 && Math.abs(p.y - q.y) <= 1 && Math.abs(p.width - q.width) <= 2 && Math.abs(p.height - q.height) <= 2;
+      if (near(nb, cur) && near(nb, rec.bounds)) continue;
+      rec.bounds = nb; changed = true;
+      if (w && !w.isDestroyed()) { w.__refit = true; desktop.placeNative(w, nb); setTimeout(() => { w.__refit = false; }, 400); }
+    }
+  }
   if (changed) save();
 }
 function rememberFrac(rec, b) {
