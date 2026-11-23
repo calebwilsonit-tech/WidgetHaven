@@ -193,6 +193,7 @@ function setup(d) {
       if (code === 1 /* ABN_POSCHANGED */ && Date.now() - (w.__reservedAt || 0) > 1500) setTimeout(() => !w.isDestroyed() && reserve(w), 50);
       if (code === 2 /* ABN_FULLSCREENAPP */) checkFullscreen();
     });
+    w.on('move', () => { clearTimeout(w.__holdT); w.__holdT = setTimeout(() => { if (!w.isDestroyed() && w.__want) desktop.holdRect(w, w.__want); }, 60); });
     w.on('closed', () => { if (wins.get(disp.id) === w) wins.delete(disp.id); });
     wins.set(disp.id, w);
     return w;
@@ -205,6 +206,14 @@ function setup(d) {
     const th = Math.round(thicknessDip(c) * disp.scaleFactor);
     w.__reservedAt = Date.now();
     const r = desktop.appbarSet(w, c.position, phys, th, CB_MSG);
+    // Remember our handle so a strip left behind by a crash can be cleaned up next time.
+    const hw = desktop.hwndOf(w);
+    if (!(S().barAppbars || []).includes(hw)) { S().barAppbars = [...(S().barAppbars || []), hw].slice(-8); save(); }
+    // Windows sometimes shoves the bar into the strip it just reserved; keep it on the screen edge.
+    if (r) {
+      w.__want = r;
+      for (const ms of [120, 450, 1200, 2500]) setTimeout(() => { if (!w.isDestroyed() && w.__want === r) desktop.holdRect(w, r); }, ms);
+    }
     const sig = r ? [r.x, r.y, r.width, r.height].join() : '';
     if (sig !== w.__resSig) { w.__resSig = sig; if (onReserved) onReserved(); }
     if (!r) {
@@ -392,6 +401,9 @@ function setup(d) {
   // ------------------------------------------------------------ lifecycle
   function start() {
     destroyAll();
+    // Clear reservations from an earlier Haven that didn't shut down cleanly.
+    const stale = (S().barAppbars || []).filter((h) => !desktop.isWindowAlive(h));
+    if (stale.length) { stale.forEach((h) => desktop.appbarRemoveHandle(h)); S().barAppbars = (S().barAppbars || []).filter((h) => !stale.includes(h)); save(); }
     const c = cfg();
     applyShortcuts();
     applyTaskbar();

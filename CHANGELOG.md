@@ -3,6 +3,12 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.4] — 2026-11-22
+
+### Fixed
+- The bar could end up 50px down, drawn over the top of your windows, because Windows moved it into the strip it had just reserved. The bar now stays on the screen edge, and it only makes room for the real Windows taskbar on that edge.
+- A reserved strip left behind after Haven was force-closed is now cleared the next time Haven starts.
+
 ## [1.3.3] — 2026-11-22
 
 ### Added

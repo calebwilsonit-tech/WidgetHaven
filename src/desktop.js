@@ -29,6 +29,7 @@ try {
       GetWindowThreadProcessId: lib.func('uint32_t __stdcall GetWindowThreadProcessId(intptr_t hwnd, _Out_ uint32_t *pid)'),
       IsZoomed: lib.func('bool __stdcall IsZoomed(intptr_t hwnd)'),
       IsWindow: lib.func('bool __stdcall IsWindow(intptr_t hwnd)'),
+      IsWindowVisible: lib.func('bool __stdcall IsWindowVisible(intptr_t hwnd)'),
       SystemParametersInfoW: lib.func('bool __stdcall SystemParametersInfoW(uint32_t action, uint32_t param, void *pv, uint32_t winIni)'),
       keybd_event: lib.func('void __stdcall keybd_event(uint8_t vk, uint8_t scan, uint32_t flags, uintptr_t extra)'),
       SetForegroundWindow: lib.func('bool __stdcall SetForegroundWindow(intptr_t hwnd)'),
@@ -360,12 +361,51 @@ function appbarSet(win, edge, mon, thickness, callbackMsg) {
       ? { left: mon.x, right: mon.x + mon.width, top: mon.y + mon.height - thickness, bottom: mon.y + mon.height }
       : { left: mon.x, right: mon.x + mon.width, top: mon.y, bottom: mon.y + thickness };
     user32.SHAppBarMessage(ABM.QUERYPOS, d);
+    // Windows stacks app bars, so a strip left behind by a crashed program would push the bar inward.
+    // Only make room for a real taskbar on this edge; otherwise sit flush with the screen edge.
+    if (!taskbarOnEdge(mon, edge)) {
+      if (edge === 'bottom') d.rc.bottom = mon.y + mon.height; else d.rc.top = mon.y;
+    }
     if (edge === 'bottom') d.rc.top = d.rc.bottom - thickness; else d.rc.bottom = d.rc.top + thickness;
+    const want = { ...d.rc };
     user32.SHAppBarMessage(ABM.SETPOS, d);
-    const r = d.rc;
+    // SETPOS can shift us again to sit beside a leftover strip; keep the spot we asked for unless a real taskbar is there.
+    const r = taskbarOnEdge(mon, edge) ? d.rc : want;
     user32.SetWindowPos(h, -1 /* HWND_TOPMOST */, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP.NOACTIVATE);
     return { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top };
   } catch (e) { console.warn('appbar failed', e.message); return null; }
+}
+// Is a visible Windows taskbar docked to this monitor's top or bottom edge?
+function taskbarOnEdge(mon, edge) {
+  try {
+    const list = [Number(user32.FindWindowW('Shell_TrayWnd', null))];
+    let h = 0;
+    for (let i = 0; i < 16; i++) { h = Number(user32.FindWindowExW(0, h, 'Shell_SecondaryTrayWnd', null)); if (!h) break; list.push(h); }
+    for (const t of list) {
+      if (!t || !user32.IsWindowVisible(t)) continue;
+      const r = {};
+      user32.GetWindowRect(t, r);
+      const onMon = r.left < mon.x + mon.width && r.right > mon.x && r.top < mon.y + mon.height && r.bottom > mon.y;
+      if (!onMon || r.right - r.left < mon.width / 2) continue; // vertical taskbars don't share our edge
+      if (edge === 'bottom' ? r.bottom >= mon.y + mon.height - 2 && r.top > mon.y + mon.height / 2 : r.top <= mon.y + 2 && r.bottom < mon.y + mon.height / 2) return true;
+    }
+  } catch {}
+  return false;
+}
+// Drop a reservation by window handle, even if that window no longer exists (left behind by a crash).
+function appbarRemoveHandle(h) {
+  if (!user32 || !user32.SHAppBarMessage || !h) return;
+  try { user32.SHAppBarMessage(ABM.REMOVE, { cbSize: user32.ABD_SIZE, hWnd: h, uCallbackMessage: 0, uEdge: 0, rc: { left: 0, top: 0, right: 0, bottom: 0 }, lParam: 0 }); } catch {}
+}
+// Physical-pixel rect of a window, and putting it back there (topmost) if something moved it.
+function physRect(win) {
+  try { const r = {}; user32.GetWindowRect(hwndOf(win), r); return { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top }; } catch { return null; }
+}
+function holdRect(win, r) {
+  if (!user32 || !r) return false;
+  const cur = physRect(win);
+  if (cur && cur.x === r.x && cur.y === r.y && cur.width === r.width && cur.height === r.height) return false;
+  try { user32.SetWindowPos(hwndOf(win), -1 /* HWND_TOPMOST */, r.x, r.y, r.width, r.height, SWP.NOACTIVATE); return true; } catch { return false; }
 }
 function appbarRemove(win) {
   if (!user32 || !user32.SHAppBarMessage) return;
@@ -415,7 +455,7 @@ function broadcastThemeChange() {
 
 module.exports = {
   keyCombo, focusWindow, minimizeWindow, closeWindow, lockWorkstation, foregroundHwnd, setToolWindow,
-  appbarSet, appbarRemove, appbarRemoveAll, taskbarAutoHide, showTaskbars, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
+  appbarSet, appbarRemove, appbarRemoveAll, appbarRemoveHandle, holdRect, taskbarAutoHide, showTaskbars, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
   pin, sendToBottom, allowForeground, keyDown, moveTo, realBounds, placeNative, watchWallpaper, readWallpaper, available: () => !!user32,
   attachToWallpaper, refreshWallpaper, foregroundState, isWindowAlive, hwndOf, wallpaperFile,
 };
