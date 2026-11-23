@@ -48,7 +48,7 @@ A status bar in the style of Hyprland and Waybar setups (`Ctrl+Alt+B` turns it o
   - **Sound:** volume and what's playing.
   - **Battery:** battery details and brightness.
   - **CPU & memory:** usage and the apps using the most memory.
-  - **Background apps:** apps running without a window (like the taskbar's hidden icons), to open or quit.
+  - **Hidden icons:** your real tray icons, with left- and right-click working like on the taskbar (even with the taskbar hidden), plus other apps running in the background.
   - **Power:** lock, sleep, restart and shut down.
   - **Quick settings:** a control center.
 - **Windows taskbar:** *Show*, *Auto-hide* or *Hidden*. It always comes back when the bar is off or Haven quits.

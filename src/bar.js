@@ -416,6 +416,8 @@ function setup(d) {
     if (!c.enabled) { if (!keepHelper) stopHelper(); clearInterval(statTimer); clearInterval(netTimer); clearInterval(fsTimer); onTaskbar && onTaskbar(); return status(); }
     for (const disp of targets()) create(disp);
     startHelper();
+    // The tray stand-in only runs while the bar shows the background apps button.
+    if ([...c.left, ...c.center, ...c.right].includes('bgapps')) tell('trayon');
     sampleStats(); sampleWifi();
     clearInterval(statTimer); statTimer = setInterval(() => { sampleStats(); push(); }, 2000);
     clearInterval(netTimer); netTimer = setInterval(sampleWifi, 20000);
@@ -488,6 +490,7 @@ function setup(d) {
     if (what === 'net') return ask('net', 'net', 9000);
     if (what === 'bright') return ask('bright', 'bright');
     if (what === 'procs') return ask('procs', 'procs');
+    if (what === 'tray') return (await ask('tray', 'tray', 6000)) || [];
     if (what === 'bgapps') {
       const list = (await ask('bgapps', 'bgapps', 9000)) || [];
       lastBg = new Map(list.map((a) => [a.pid, a]));
@@ -521,6 +524,13 @@ function setup(d) {
       }
       case 'live': return d.setLive && d.setLive(!!arg);
       // Background apps: open (most tray apps show their window when started again), quit, or force quit.
+      case 'trayClick': {
+        // Close the panel first so the app's own menu can take the foreground, then click the icon.
+        hideFly();
+        const id = String((arg && arg.id) || '').replace(/[^0-9:]/g, ''), btn = arg && arg.button === 'right' ? 'right' : 'left';
+        if (id) setTimeout(() => tell('trayclick ' + id + ' ' + btn), 120);
+        return true;
+      }
       case 'bgOpen': { const a = lastBg.get(+arg); if (!a) return false; hideFly(); desktop.allowForeground(); shell.openPath(a.path); return true; }
       case 'bgQuit': case 'bgForce': {
         const a = lastBg.get(+arg); if (!a) return false;
@@ -539,6 +549,7 @@ function setup(d) {
     S().bar = { ...prev, ...patch };
     save();
     if (!fromSync && d.onLook) d.onLook(patch);
+    if (['left', 'center', 'right'].some((z) => z in patch) && [...cfg().left, ...cfg().center, ...cfg().right].includes('bgapps')) tell('trayon');
     if (GEOMETRY.some((k) => k in patch && patch[k] !== prev[k])) start();
     else { applyShortcuts(); applyTaskbar(); refresh(); }
     return cfg();

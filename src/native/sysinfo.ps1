@@ -259,6 +259,158 @@ namespace HavenVD {
 '@
 } catch {}
 
+# Tray icons (the taskbar's hidden icons). Haven sits in front of the taskbar's tray: every message is passed
+# straight on to Windows' real tray (so it keeps working), and Haven learns each icon so the bar can show it
+# and send the app the same left/right-click a real tray click would. Only started when the bar asks for it.
+try {
+Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
+
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+
+public static class TrayHost {
+  delegate IntPtr WndProc(IntPtr h, uint m, IntPtr w, IntPtr l);
+  delegate bool EnumProc(IntPtr h, IntPtr l);
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  struct WNDCLASSEX { public uint cbSize, style; public WndProc lpfnWndProc; public int cbClsExtra, cbWndExtra; public IntPtr hInstance, hIcon, hCursor, hbrBackground; public string lpszMenuName, lpszClassName; public IntPtr hIconSm; }
+  [StructLayout(LayoutKind.Sequential)] struct COPYDATASTRUCT { public IntPtr dwData; public int cbData; public IntPtr lpData; }
+  [StructLayout(LayoutKind.Sequential)] struct MSG { public IntPtr hwnd; public uint message; public IntPtr wParam, lParam; public uint time; public int x, y; }
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern ushort RegisterClassExW(ref WNDCLASSEX c);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr CreateWindowExW(uint ex, string cls, string name, uint style, int x, int y, int w, int h, IntPtr parent, IntPtr menu, IntPtr inst, IntPtr param);
+  [DllImport("user32.dll")] static extern IntPtr DefWindowProcW(IntPtr h, uint m, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] static extern int GetMessageW(out MSG m, IntPtr h, uint a, uint b);
+  [DllImport("user32.dll")] static extern bool TranslateMessage(ref MSG m);
+  [DllImport("user32.dll")] static extern IntPtr DispatchMessageW(ref MSG m);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  [DllImport("user32.dll")] static extern IntPtr SendMessageTimeoutW(IntPtr h, uint m, IntPtr w, IntPtr l, uint f, uint t, out IntPtr r);
+  [DllImport("user32.dll")] static extern bool PostMessageW(IntPtr h, uint m, IntPtr w, IntPtr l);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern uint RegisterWindowMessageW(string s);
+  [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint f);
+  [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool DestroyWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool AllowSetForegroundWindow(uint pid);
+  [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT p);
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
+
+  public class Icon { public long hwnd; public uint uid, callback, version, pid; public string tip = ""; public long hicon; public bool hidden; }
+  static readonly Dictionary<string, Icon> icons = new Dictionary<string, Icon>();
+  static WndProc proc;
+  static IntPtr me, explorer;
+  static uint myPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+
+  static IntPtr FindExplorerTray() {
+    IntPtr found = IntPtr.Zero;
+    EnumWindows((h, l) => {
+      var c = new StringBuilder(64); GetClassNameW(h, c, 64);
+      if (c.ToString() == "Shell_TrayWnd") { uint pid; GetWindowThreadProcessId(h, out pid); if (pid != myPid) { found = h; return false; } }
+      return true;
+    }, IntPtr.Zero);
+    return found;
+  }
+
+  static IntPtr Proc(IntPtr h, uint m, IntPtr w, IntPtr l) {
+    if (m == 0x004A) { // WM_COPYDATA
+      try {
+        var cds = (COPYDATASTRUCT)Marshal.PtrToStructure(l, typeof(COPYDATASTRUCT));
+        if (cds.dwData.ToInt64() == 1 && cds.cbData >= 8 + 24) Record(cds.lpData, cds.cbData);
+      } catch {}
+    }
+    // Our own window housekeeping stays here; messages meant for the taskbar (data and app messages) go on to the
+    // real taskbar, so Windows keeps working exactly as before.
+    if (m != 0x004A && m < 0x0400) return DefWindowProcW(h, m, w, l);
+    if (explorer == IntPtr.Zero || !IsWindow(explorer)) explorer = FindExplorerTray();
+    if (explorer == IntPtr.Zero) return DefWindowProcW(h, m, w, l);
+    IntPtr r; SendMessageTimeoutW(explorer, m, w, l, 0x0002 /* ABORTIFHUNG */, 3000, out r);
+    return r;
+  }
+
+  static void Record(IntPtr p, int n) {
+    uint msg = (uint)Marshal.ReadInt32(p, 4);
+    int b = 8; // NOTIFYICONDATA (32-bit layout)
+    uint hwnd = (uint)Marshal.ReadInt32(p, b + 4), uid = (uint)Marshal.ReadInt32(p, b + 8), flags = (uint)Marshal.ReadInt32(p, b + 12);
+    string key = hwnd + ":" + uid;
+    lock (icons) {
+      if (msg == 2) { icons.Remove(key); return; }          // NIM_DELETE
+      Icon ic; if (!icons.TryGetValue(key, out ic)) { ic = new Icon { hwnd = hwnd, uid = uid }; uint pid; GetWindowThreadProcessId(new IntPtr(hwnd), out pid); ic.pid = pid; icons[key] = ic; }
+      if (msg == 4) { ic.version = (uint)Marshal.ReadInt32(p, b + 800); return; } // NIM_SETVERSION
+      if ((flags & 1) != 0) ic.callback = (uint)Marshal.ReadInt32(p, b + 16);
+      if ((flags & 2) != 0) ic.hicon = (uint)Marshal.ReadInt32(p, b + 20);
+      if ((flags & 4) != 0) ic.tip = Marshal.PtrToStringUni(new IntPtr(p.ToInt64() + b + 24));
+      if ((flags & 8) != 0 && n >= b + 288) { uint st = (uint)Marshal.ReadInt32(p, b + 280), mask = (uint)Marshal.ReadInt32(p, b + 284); if ((mask & 1) != 0) ic.hidden = (st & 1) != 0; }
+      if (msg == 0 && n >= b + 804) { uint v = (uint)Marshal.ReadInt32(p, b + 800); if (v > 0 && v < 10) ic.version = v; }
+    }
+  }
+
+  static bool started;
+  public static void Start() {
+    if (started) return; started = true;
+    var t = new Thread(() => {
+      proc = Proc;
+      var wc = new WNDCLASSEX { cbSize = (uint)Marshal.SizeOf(typeof(WNDCLASSEX)), lpfnWndProc = proc, lpszClassName = "Shell_TrayWnd" };
+      RegisterClassExW(ref wc);
+      explorer = FindExplorerTray();
+      me = CreateWindowExW(0x80 | 0x8 /* toolwindow, topmost */, "Shell_TrayWnd", "", 0x80000000, 0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+      SetWindowPos(me, new IntPtr(-1), 0, 0, 0, 0, 0x1 | 0x2 | 0x10);
+      // Ask every app to (re)announce its tray icons; they reach us first, and we pass them on.
+      PostMessageW(new IntPtr(0xFFFF), RegisterWindowMessageW("TaskbarCreated"), IntPtr.Zero, IntPtr.Zero);
+      MSG m; while (GetMessageW(out m, IntPtr.Zero, 0, 0) > 0) { TranslateMessage(ref m); DispatchMessageW(ref m); }
+    });
+    t.IsBackground = true; t.SetApartmentState(ApartmentState.STA); t.Start();
+  }
+  public static void Stop() { if (me != IntPtr.Zero) PostMessageW(me, 0x0010, IntPtr.Zero, IntPtr.Zero); }
+
+  public static string List() {
+    var sb = new StringBuilder("[");
+    lock (icons) {
+      bool first = true;
+      foreach (var ic in icons.Values) {
+        if (ic.hidden || !IsWindow(new IntPtr(ic.hwnd))) continue;
+        if (!first) sb.Append(","); first = false;
+        sb.Append("{\"id\":\"").Append(ic.hwnd + ":" + ic.uid).Append("\",\"pid\":").Append(ic.pid).Append(",\"v\":").Append(ic.version)
+          .Append(",\"name\":\"").Append(ProcName(ic.pid)).Append("\",\"tip\":\"").Append((ic.tip ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", " ").Replace("\r", "")).Append("\",\"icon\":\"").Append(IconPng(ic.hicon)).Append("\"}");
+      }
+    }
+    return sb.Append("]").ToString();
+  }
+  static string ProcName(uint pid) { try { return System.Diagnostics.Process.GetProcessById((int)pid).ProcessName; } catch { return ""; } }
+  static readonly Dictionary<long, string> pngs = new Dictionary<long, string>();
+  static string IconPng(long h) {
+    if (h == 0) return "";
+    string s; if (pngs.TryGetValue(h, out s)) return s;
+    try { using (var ico = System.Drawing.Icon.FromHandle(new IntPtr(h))) using (var bmp = ico.ToBitmap()) using (var ms = new MemoryStream()) { bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png); s = Convert.ToBase64String(ms.ToArray()); } } catch { s = ""; }
+    pngs[h] = s; return s;
+  }
+
+  // The same messages a real tray click sends to the app.
+  public static bool Click(string id, string button) {
+    Icon ic; lock (icons) { if (!icons.TryGetValue(id, out ic)) return false; }
+    IntPtr hw = new IntPtr(ic.hwnd);
+    AllowSetForegroundWindow(ic.pid);
+    POINT pt; GetCursorPos(out pt);
+    bool right = button == "right";
+    uint down = right ? 0x0204u : 0x0201u, up = right ? 0x0205u : 0x0202u;
+    if (ic.version >= 4) {
+      IntPtr w = new IntPtr((pt.Y << 16) | (pt.X & 0xFFFF));
+      Func<uint, IntPtr> L = (ev) => new IntPtr((long)((ic.uid << 16) | (ev & 0xFFFF)));
+      PostMessageW(hw, ic.callback, w, L(down)); PostMessageW(hw, ic.callback, w, L(up));
+      PostMessageW(hw, ic.callback, w, L(right ? 0x007Bu /* WM_CONTEXTMENU */ : 0x0400u /* NIN_SELECT */));
+    } else {
+      PostMessageW(hw, ic.callback, new IntPtr(ic.uid), new IntPtr(down)); PostMessageW(hw, ic.callback, new IntPtr(ic.uid), new IntPtr(up));
+      if (!right) PostMessageW(hw, ic.callback, new IntPtr(ic.uid), new IntPtr(0x0203)); // double-click: many old apps open on this
+    }
+    return true;
+  }
+}
+'@
+} catch {}
+
 # Now playing (Windows media sessions: Spotify, browsers, media players…).
 $script:media = $null
 try {
@@ -394,6 +546,9 @@ while ($true) {
       'net' { Reply 'net' (Get-NetInfo) }
       'procs' { Reply 'procs' (Get-Procs) }
       'bgapps' { Reply 'bgapps' (Get-BgApps) }
+      'trayon' { try { [TrayHost]::Start() } catch {} }
+      'tray' { $t = '[]'; try { $t = [TrayHost]::List() } catch {}; $out.WriteLine('{"reply":"tray","data":' + $t + '}'); $out.Flush() }
+      'trayclick' { try { [void][TrayHost]::Click($a[1], $a[2]) } catch {} }
       'vdnew' { try { $id = [HavenVD.VD]::MoveToNew([long]$a[1]); Reply 'vd' @{ ok = $true; id = $id } } catch { Reply 'vd' @{ ok = $false; error = "$($_.Exception.Message)" } } }
       'vdclean' { try { $null = [HavenVD.VD]::RemoveIfEmpty($a[1]) } catch {} }
       'vdhome' { try { [HavenVD.VD]::MoveHome([long]$a[1]) } catch {}; Reply 'vdhome' $true }

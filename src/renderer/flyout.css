@@ -159,3 +159,11 @@ body.square .th .dots i { border-radius: 50% !important; }
 .bg .r:hover .x { opacity: 1; } .bg .x:hover { background: var(--red); color: var(--base); }
 .bg .x .ic { width: 12px; height: 12px; }
 .bg .r.gone { animation: slideout .25s ease forwards; }
+
+/* tray icons grid */
+.trayg { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.trayg .ti { height: 44px; border-radius: 11px; display: grid; place-items: center; transition: background .15s, transform .1s; }
+.trayg .ti:hover { background: rgb(var(--text-rgb) / .1); }
+.trayg .ti:active { transform: scale(.92); }
+.trayg .ti img, .trayg .ti .bgl { width: 22px; height: 22px; }
+.trayg .ti .bgl { display: grid; place-items: center; border-radius: 5px; font-size: 11px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--base); }

@@ -3,6 +3,13 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.20] — 2026-11-23
+
+### Added
+- **Hidden icons in Haven's panel:** the bar's background apps button now shows your real tray icons (Steam, Bluetooth, USB eject, your laptop's utilities and so on). **Left-click** and **right-click** work just like on the taskbar, so apps show their own menus. It works even with the Windows taskbar hidden. Other apps running in the background are still listed below.
+  - To do this, Haven stands in front of the taskbar's tray while the bar has this button, passing everything straight on to Windows' real tray, so the taskbar keeps working as before.
+  - Windows' own icons open the matching panel: Speakers opens Haven's sound panel and Bluetooth opens Bluetooth settings.
+
 ## [1.3.19] — 2026-11-23
 
 ### Added

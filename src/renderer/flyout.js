@@ -117,8 +117,9 @@ const R = {
   },
   themes() { return `<div class="hd"><h3>Theme</h3></div>${themeChips(false)}${links([['Manage themes', 'themesTab']])}`; },
   bgapps() {
-    return `<div class="hd"><h3>Running in the background</h3></div>
-      <div class="rows bg" id="bg"><div class="muted small">Looking…</div></div>
+    return `<div class="hd"><h3>Hidden icons</h3></div>
+      <div class="trayg" id="tray"><div class="muted small">Looking…</div></div>
+      <div class="sec"><div class="lbl">Also running in the background</div><div class="rows bg" id="bg"><div class="muted small">Looking…</div></div></div>
       ${links([['Windows hidden icons', 'winTray'], ['Task Manager', 'taskmgr']])}`;
   },
 };
@@ -168,12 +169,24 @@ function renderNotes(list, cleared) {
   box.innerHTML = list.length ? list.map((n) => `<div class="note"><div class="meta"><b>${esc(n.app || 'App')}</b><span>${ago(n.time)}</span></div>${n.title ? `<div class="tt">${esc(n.title)}</div>` : ''}${n.body ? `<div class="bd">${esc(n.body)}</div>` : ''}<button class="x" data-nx="${n.id}" title="Dismiss">${icx('x')}</button></div>`).join('')
     : `<div class="empty ${cleared ? 'cleared' : ''}">${ic('bell')}<b>You're all caught up</b><div class="small">New notifications will show up here.</div></div>`;
 }
+let trayNames = new Set();
+function renderTray(list) {
+  const box = $('#tray');
+  if (!box) return;
+  list = (list || []).filter((t) => t.icon || t.tip);
+  trayNames = new Set(list.map((t) => (t.name || '').toLowerCase()));
+  box.innerHTML = list.length ? list.map((t) => `<button class="ti" data-tray="${esc(t.id)}" title="${esc(t.tip || t.name)}">${t.icon ? `<img src="data:image/png;base64,${t.icon}" alt="">` : `<span class="bgl">${esc((t.tip || t.name || '?').charAt(0))}</span>`}</button>`).join('')
+    : '<div class="muted small">No tray icons yet. Apps add theirs as they start.</div>';
+  // Apps already shown as tray icons don't need repeating in the list below.
+  $$('#bg .bgr').forEach((r) => { const n = (r.dataset.exe || '').toLowerCase(); if (n && trayNames.has(n)) r.remove(); });
+}
 function renderBg(list) {
   const box = $('#bg');
   if (!box) return;
   list = list || [];
   box.innerHTML = list.length ? list.map((a) => `<div class="r bgr" data-bg="${a.pid}" title="${esc(a.path)}">${a.icon ? `<img src="${a.icon}" alt="">` : `<span class="bgl">${esc(a.name.charAt(0))}</span>`}<span class="nm">${esc(a.name)}</span><button class="x" data-bgq="${a.pid}" title="Quit">${icx('x')}</button></div>`).join('')
-    : '<div class="empty small">Nothing is running in the background.</div>';
+    : '<div class="empty small">Nothing else is running in the background.</div>';
+  $$('#bg .bgr').forEach((r, i) => { const a = list[i]; if (a) r.dataset.exe = (a.path || '').split('\\').pop().replace(/\.exe$/i, ''); if (trayNames.has((r.dataset.exe || '').toLowerCase())) r.remove(); });
 }
 function renderMeters() {
   const box = $('#meters');
@@ -231,7 +244,7 @@ async function open(p) {
     }
   }
   if (kind === 'battery') { renderBattery(); loadBright('#brightSec'); }
-  if (kind === 'bgapps') renderBg(await api.flyoutAsk('bgapps'));
+  if (kind === 'bgapps') { api.flyoutAsk('tray').then(renderTray); renderBg(await api.flyoutAsk('bgapps')); }
   if (kind === 'quick') loadBright('#briWrap');
   if (kind === 'system') {
     const t = await api.flyoutAsk('uptime'); const el = $('#up'); if (el) el.textContent = 'Up ' + Math.floor(t / 86400) + 'd ' + Math.floor((t % 86400) / 3600) + 'h';
@@ -283,6 +296,13 @@ panel.addEventListener('click', async (e) => {
   }
   if ((el = t('[data-wcon]'))) { el.textContent = 'Connecting…'; await api.flyoutDo('wifiConnect', el.dataset.wcon); setTimeout(() => open(P), 2500); return; }
   if ((el = t('[data-wdis]'))) { await api.flyoutDo('wifiDisconnect'); setTimeout(() => open(P), 1500); return; }
+  if ((el = t('[data-tray]'))) {
+    // Windows' own icons don't take app-style clicks: open the matching Haven panel or setting instead.
+    const tip = el.title || '';
+    if (/^(Speakers|Headphones|Volume)/i.test(tip)) { kind = 'volume'; render(); return; }
+    if (/^Bluetooth/i.test(tip)) return api.flyoutDo('open', 'ms-settings:bluetooth');
+    return api.flyoutDo('trayClick', { id: el.dataset.tray, button: 'left' });
+  }
   if ((el = t('[data-bgq]'))) {
     const row = el.closest('.bgr'), pid = el.dataset.bgq;
     if (el.dataset.force) { row.style.opacity = '.4'; await api.flyoutDo('bgForce', pid); row.classList.add('gone'); setTimeout(() => row.remove(), 260); return; }
@@ -319,6 +339,13 @@ panel.addEventListener('click', async (e) => {
   }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') api.flyoutClose(); });
+// Right-click a tray icon: the app's own menu, just like on the taskbar.
+panel.addEventListener('contextmenu', (e) => {
+  const el = e.target.closest('[data-tray]');
+  if (!el) return;
+  e.preventDefault();
+  api.flyoutDo('trayClick', { id: el.dataset.tray, button: 'right' });
+});
 
 api.on('flyout:open', open);
 api.on('flyout:close', () => { clearInterval(tick); panel.classList.remove('in'); });
