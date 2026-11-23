@@ -1,7 +1,7 @@
 {
   "name": "haven",
   "productName": "Haven",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "A beautiful desktop organizer for your apps, games, files, folders and links.",
   "main": "src/main.js",
   "scripts": {
