@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.11] — 2026-11-22
+
+### Fixed
+- Apps with a minimum window size, like Steam, now tile properly instead of hanging off the screen or floating. They move to the first tile, which widens to their minimum size, and the other windows share the rest of the space. An app only floats (centered and fully on screen) if even that can't hold it.
+
 ## [1.3.10] — 2026-11-22
 
 ### Fixed

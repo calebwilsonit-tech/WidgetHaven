@@ -120,10 +120,13 @@ function setup({ store, save, palette, log }) {
     const r = ext(h), cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
     return ds.find((d) => cx >= d.bounds.x && cx < d.bounds.x + d.bounds.width && cy >= d.bounds.y && cy < d.bounds.y + d.bounds.height) || ds[0];
   }
-  function split(area, n, inner, cfg) {
+  const REST_MIN = 360; // keep at least this much (px) for the remaining windows when widening a share
+  function split(area, n, inner, cfg, mins = []) {
     const out = [];
+    const need = (i, dim) => (mins[i] && mins[i][dim]) || 0;
     if (cfg.layout === 'master' && n > 1) {
-      const mw = Math.round(area.width * cfg.master / 100);
+      let mw = Math.round(area.width * cfg.master / 100);
+      mw = Math.max(mw, Math.min(need(0, 'w') + inner / 2, area.width - REST_MIN));
       out.push({ x: area.x, y: area.y, width: mw - inner / 2, height: area.height });
       const sh = (area.height - inner * (n - 2)) / (n - 1);
       for (let i = 0; i < n - 1; i++) out.push({ x: area.x + mw + inner / 2, y: area.y + i * (sh + inner), width: area.width - mw - inner / 2, height: sh });
@@ -134,13 +137,15 @@ function setup({ store, save, palette, log }) {
     for (let i = 0; i < n; i++) {
       if (i === n - 1) { out.push(rest); break; }
       if (rest.width >= rest.height) {
-        const w = (rest.width - inner) / 2;
+        let w = (rest.width - inner) / 2;
+        w = Math.max(w, Math.min(need(i, 'w'), rest.width - inner - REST_MIN));
         out.push({ x: rest.x, y: rest.y, width: w, height: rest.height });
-        rest = { x: rest.x + w + inner, y: rest.y, width: w, height: rest.height };
+        rest = { x: rest.x + w + inner, y: rest.y, width: rest.width - w - inner, height: rest.height };
       } else {
-        const hh = (rest.height - inner) / 2;
+        let hh = (rest.height - inner) / 2;
+        hh = Math.max(hh, Math.min(need(i, 'h'), rest.height - inner - REST_MIN));
         out.push({ x: rest.x, y: rest.y, width: rest.width, height: hh });
-        rest = { x: rest.x, y: rest.y + hh + inner, width: rest.width, height: hh };
+        rest = { x: rest.x, y: rest.y + hh + inner, width: rest.width, height: rest.height - hh - inner };
       }
     }
     return out;
@@ -194,7 +199,7 @@ function setup({ store, save, palette, log }) {
       if (!prev.length) continue;
       const g = Math.round(cfg.outer * d.scale), gi = Math.round(cfg.inner * d.scale);
       const area = { x: d.area.x + g, y: d.area.y + g, width: d.area.width - g * 2, height: d.area.height - g * 2 };
-      split(area, prev.length, gi, cfg).forEach((r, i) => {
+      split(area, prev.length, gi, cfg, prev.map((h) => minSize.get(h))).forEach((r, i) => {
         let to = { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) };
         if (prev[i] === focusWin) to = { ...area };
         moves.push({ h: prev[i], to, fresh: !known.has(prev[i]) });
@@ -205,6 +210,7 @@ function setup({ store, save, palette, log }) {
     }
     for (const m of moves) known.add(m.h);
     for (const h of [...slots.keys()]) if (!tiledNow.has(h)) slots.delete(h);
+    for (const h of [...minSize.keys()]) if (!k.IsWindow(h)) minSize.delete(h);
     watchProcesses();
     animate(moves);
     borders();
@@ -228,12 +234,23 @@ function setup({ store, save, palette, log }) {
   }
   // Some apps (Steam, for one) refuse to shrink below their own minimum size. If a window ends up bigger
   // than its slot, float it centered and tile everything else around it, so nothing overlaps.
+  const minSize = new Map(); // window -> the smallest size it accepted (apps with a minimum size)
   function checkFit(jobs) {
     let changed = false;
     for (const j of jobs) {
       if (j.h === focusWin || floating.has(j.h) || !k.IsWindow(j.h)) continue;
-      const e = ext(j.h);
-      if (e.right - e.left > j.to.width + 12 || e.bottom - e.top > j.to.height + 12) { floating.add(j.h); centerFloat(j.h); changed = true; }
+      const e = ext(j.h), w = e.right - e.left, h = e.bottom - e.top;
+      const to = slots.get(j.h) || j.to; // its current tile (the layout may have changed since)
+      if (w <= to.width + 12 && h <= to.height + 12) continue;
+      if (!minSize.has(j.h)) {
+        // Make room: remember its minimum and move it to the first (biggest) tile, then lay out again.
+        minSize.set(j.h, { w, h });
+        for (const list of order.values()) { const i = list.indexOf(j.h); if (i > 0) { list.splice(i, 1); list.unshift(j.h); } }
+      } else {
+        // Even the roomiest layout can't hold it: float it, centered and fully on screen.
+        floating.add(j.h); centerFloat(j.h);
+      }
+      changed = true;
     }
     if (changed) setTimeout(retile, 30);
   }
@@ -260,7 +277,8 @@ function setup({ store, save, palette, log }) {
     if (!jobs.length) return;
     const cfg = S();
     const ms = !cfg.animate ? 0 : cfg.speed === 'fast' ? 160 : 260;
-    const done = () => { if (!noFit) setTimeout(() => checkFit(jobs), 120); };
+    // Check twice: some apps (Steam) only snap back to their minimum size a moment later.
+    const done = () => { if (!noFit) { setTimeout(() => checkFit(jobs), 120); setTimeout(() => checkFit(jobs), 700); } };
     if (!ms) { place(jobs.map((j) => ({ h: j.h, r: j.to, off: j.off }))); done(); return; }
     const frame = (e) => place(jobs.map((j) => ({ h: j.h, off: j.off, r: { x: Math.round(j.from.x + (j.to.x - j.from.x) * e), y: Math.round(j.from.y + (j.to.y - j.from.y) * e), width: j.to.width, height: j.to.height } })));
     frame(0);
@@ -348,6 +366,7 @@ function setup({ store, save, palette, log }) {
       const now = Date.now(), list = (fights.get(h) || []).filter((t) => now - t < 4000);
       list.push(now); fights.set(h, list);
       if (list.length > 4) { floating.add(h); centerFloat(h); soon(30); return; }
+      if (e.right - e.left > to.width + 12 || e.bottom - e.top > to.height + 12) { checkFit([{ h, to }]); return; }
       const w = rect(h);
       place([{ h, r: to, off: { l: e.left - w.left, t: e.top - w.top, r: w.right - e.right, b: w.bottom - e.bottom } }]);
     }, 120));
