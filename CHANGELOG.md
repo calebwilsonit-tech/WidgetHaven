@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.5.1] — 2026-11-23
+
+### Changed
+- Studio links (Studio, Live wallpaper, HavenBar, Themes, HavenTile) are no longer repeated in Settings → Widgets and the main window's Desktop widgets menu, now that the sidebar and title bar have them. Widgets on the desktop still have them in their right-click menu.
+
 ## [1.5.0] — 2026-11-23
 
 ### Added
