@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld('haven', {
   wmGet: invoke('wm:get'),
   wmSet: invoke('wm:set'),
   wmFocus: invoke('wm:focus'),
+  wmBringBack: invoke('wm:bringBack'),
   themeList: invoke('theme:list'),
   themeApply: invoke('theme:apply'),
   themeSave: invoke('theme:save'),

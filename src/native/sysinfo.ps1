@@ -217,6 +217,12 @@ namespace HavenVD {
       mgr.MoveViewToDesktop(view, d);
       return d.GetId().ToString();
     }
+    public static void MoveHome(long hwnd) {
+      Init();
+      IApplicationView view; int hr = views.GetViewForHwnd(new IntPtr(hwnd), out view);
+      if (hr != 0 || view == null) return;
+      mgr.MoveViewToDesktop(view, mgr.GetCurrentDesktop());
+    }
     // Removes a desktop Haven made, but only once no app windows are left on it.
     public static bool RemoveIfEmpty(string id) {
       Init();
@@ -353,6 +359,7 @@ while ($true) {
       'procs' { Reply 'procs' (Get-Procs) }
       'vdnew' { try { $id = [HavenVD.VD]::MoveToNew([long]$a[1]); Reply 'vd' @{ ok = $true; id = $id } } catch { Reply 'vd' @{ ok = $false; error = "$($_.Exception.Message)" } } }
       'vdclean' { try { $null = [HavenVD.VD]::RemoveIfEmpty($a[1]) } catch {} }
+      'vdhome' { try { [HavenVD.VD]::MoveHome([long]$a[1]) } catch {}; Reply 'vdhome' $true }
     }
     $fast = $true
   }

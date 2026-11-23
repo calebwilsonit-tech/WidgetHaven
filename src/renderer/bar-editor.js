@@ -362,7 +362,7 @@
     const t = WM.tiler, l = WM.launcher;
     const sw = (on, id) => `<button class="switch ${on ? 'on' : ''}" id="${id}"></button>`;
     const segW = (id, val, opts) => `<div class="seg" id="${id}">${opts.map(([v, lb]) => `<button data-v="${v}" class="${String(val) === String(v) ? 'on' : ''}">${lb}</button>`).join('')}</div>`;
-    const keyRows = [['Ctrl+Alt+←↑↓→', 'Focus the window in that direction'], ['Ctrl+Alt+Shift+←↑↓→', 'Swap windows'], ['Drag a window onto another', 'Swap them'], ['Ctrl+Alt+F', 'Float / tile the active window'], ['Ctrl+Alt+L', 'Switch layout (dwindle / master)'], ['Ctrl+Alt+Q', 'Close the active window'], ['Ctrl+Alt+Enter', 'Open a terminal'], ['Ctrl+Alt+P', 'Pause / resume tiling'], ['Ctrl+Alt+Z', 'Focus: the active window fills the screen (again to undo)'], ['Ctrl+Alt+1…9', 'Jump to a desktop (with the bar on)'], ['Maximize a window', 'Same as focus mode: it fills the tiled area']];
+    const keyRows = [['Ctrl+Alt+←↑↓→', 'Focus the window in that direction'], ['Ctrl+Alt+Shift+←↑↓→', 'Swap windows'], ['Drag a window onto another', 'Swap them'], ['Ctrl+Alt+F', 'Float / tile the active window'], ['Ctrl+Alt+L', 'Switch layout (dwindle / master)'], ['Ctrl+Alt+Q', 'Close the active window'], ['Ctrl+Alt+Enter', 'Open a terminal'], ['Ctrl+Alt+P', 'Pause / resume tiling'], ['Ctrl+Alt+Z', 'Focus: the active window fills the screen (again to undo)'], ['Drag a window edge', 'Resize it; the neighbours make room'], ['Ctrl+Alt+= / −', 'Grow / shrink the active window'], ['Ctrl+Alt+0', 'Even out all sizes'], ['Ctrl+Alt+1…9', 'Jump to a desktop (with the bar on)'], ['Maximize a window', 'Same as focus mode: it fills the tiled area']];
     $('#wmMain').innerHTML = `
       <div class="live-head" style="margin-bottom:10px"><div><h2>Tiling windows <small class="beta">beta</small></h2><p class="muted">Haven arranges your app windows side by side with gaps, like Hyprland, and animates them into place. New windows split the space; close one and the rest fill in.</p></div>${sw(t.enabled, 'wmOn')}</div>
       <div class="sec-h"><h4>Presets</h4></div>
@@ -379,7 +379,8 @@
       <div class="group"><h5>Layout</h5>
         ${fld('Style', segW('wmLayout', t.layout, [['dwindle', 'Dwindle'], ['master', 'Master']]))}
         ${t.layout === 'master' ? fld('Main width', `<input type="range" id="wmMaster" min="30" max="75" value="${t.master}" style="--p:${((t.master - 30) / 45) * 100}%"><span class="val">${t.master}%</span>`) : ''}
-        ${fld('No room?', segW('wmOverflow', t.overflow || 'float', [['float', 'Float it'], ['desktop', 'Own desktop']]), 'When a window can\'t shrink enough to fit even the biggest tile.')}
+        ${fld('No room?', segW('wmOverflow', t.overflow || 'float', [['float', 'Float it'], ['desktop', 'Own desktop']]), 'Only for a window that just opened and can\'t shrink enough to fit. Windows already on screen are never moved.')}
+        <div class="f"><label></label><div class="row"><button class="btn sm" id="wmBack">Bring back moved windows</button></div></div>
         ${fld('Inner gaps', `<input type="range" id="wmInner" min="0" max="30" value="${t.inner}" style="--p:${(t.inner / 30) * 100}%"><span class="val">${t.inner}px</span>`)}
         ${fld('Outer gaps', `<input type="range" id="wmOuter" min="0" max="40" value="${t.outer}" style="--p:${(t.outer / 40) * 100}%"><span class="val">${t.outer}px</span>`)}
       </div>
@@ -417,6 +418,7 @@
     $('#wmFollow').onclick = () => setT({ followMouse: t.followMouse === false });
     $$('#wmLayout button').forEach((b) => (b.onclick = () => setT({ layout: b.dataset.v })));
     $$('#wmOverflow button').forEach((b) => (b.onclick = () => setT({ overflow: b.dataset.v })));
+    $('#wmBack').onclick = async () => { const n = await api.wmBringBack(); toast(n ? `Brought back ${n} window${n > 1 ? 's' : ''}` : 'Nothing to bring back'); };
     $$('#wmCorners button').forEach((b) => (b.onclick = () => setT({ corners: b.dataset.v })));
     $$('#wmAnim button').forEach((b) => (b.onclick = () => setT(b.dataset.v === 'off' ? { animate: false } : { animate: true, speed: b.dataset.v })));
     for (const [id, key, unit] of [['wmInner', 'inner', 'px'], ['wmOuter', 'outer', 'px'], ['wmMaster', 'master', '%']]) {

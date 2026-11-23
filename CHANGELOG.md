@@ -3,6 +3,17 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.18] — 2026-11-23
+
+### Added
+- **Resize tiled windows:** drag the edge between two windows and the layout keeps that size, with the neighbors making room. **Ctrl+Alt+=** grows the active window, **Ctrl+Alt+−** shrinks it, and **Ctrl+Alt+0** evens everything out.
+- **Bring back moved windows** (bar right-click menu, tray, Studio → Windows): returns windows Haven moved to their own desktop and removes those desktops.
+
+### Fixed
+- Resizing a window could push another one out of the layout or onto another desktop. A resize now stops before the other windows get smaller than their minimum, and windows already on screen are never moved away. Only a window that just opened can go to its own desktop.
+- The tiler could keep re-laying out windows several times a second (reacting to unrelated Windows events), wasting CPU and skipping the check that makes room for apps with a minimum size.
+- A window still catching up to its new size could be mistaken for one that can't shrink.
+
 ## [1.3.17] — 2026-11-23
 
 ### Added

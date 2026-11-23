@@ -795,6 +795,7 @@ function buildTray() {
     { label: 'Haven Studio…', click: () => studio.openEditor({ tab: 'widgets' }) },
     { label: 'Haven Bar   (Ctrl+Alt+B)', type: 'checkbox', checked: !!(store.settings.bar && store.settings.bar.enabled), click: (m) => bar.set({ enabled: m.checked }) },
     { label: 'Tile windows (beta)   Ctrl+Alt+P pauses', type: 'checkbox', checked: !!(tiler && tiler.cfg().enabled), click: (m) => tiler.set({ enabled: m.checked }) },
+    tiler && tiler.movedAway() ? { label: 'Bring back windows Haven moved', click: () => tiler.bringBack() } : null,
     tiler && tiler.cfg().enabled ? { label: 'Focus mode   Ctrl+Alt+Z', type: 'checkbox', checked: tiler.focused(), click: () => tiler.toggleFocus() } : null,
     { label: 'App launcher (Win+S)', type: 'checkbox', checked: !!(launcher && launcher.cfg().enabled), click: (m) => launcher.set({ enabled: m.checked }) },
     { label: 'Theme', submenu: [...themes.all().map((t) => ({ label: t.name, type: 'radio', checked: t.id === themes.currentId(), click: () => themes.apply(t.id) })), { type: 'separator' }, { label: 'Themes…', click: () => studio.openEditor({ tab: 'themes' }) }] },
@@ -1091,7 +1092,7 @@ app.whenReady().then(async () => {
   createWindow();
   for (const rec of store.widgets) createWidgetWindow(rec);
   if (store.settings.tiler && store.settings.tiler.floatApps === 'steamwebhelper, Steam') store.settings.tiler.floatApps = '';
-  tiler = tilerMod.setup({ store, save, palette: () => themes.palette(), log: console.warn, vd: { move: (h) => bar.vdMove(h), clean: (id) => bar.vdClean(id) }, barRadius: () => { const b = bar.cfg(); return b.style === 'full' ? 0 : b.radius; } });
+  tiler = tilerMod.setup({ store, save, palette: () => themes.palette(), log: console.warn, vd: { move: (h) => bar.vdMove(h), clean: (id) => bar.vdClean(id), home: (h) => bar.vdHome(h) }, barRadius: () => { const b = bar.cfg(); return b.style === 'full' ? 0 : b.radius; } });
   launcher = launcherMod.setup({
     store, save, webPrefs: WEB_PREFS, makeLogo, palette: () => themes.palette(), getFont: () => bar.cfg().font, log: console.warn,
     focusWin: (w) => desktop.focusWindow(desktop.hwndOf(w)),
@@ -1101,6 +1102,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('wm:get', () => ({ tiler: tiler.cfg(), launcher: launcher.cfg(), keys: tiler.KEYS, available: tiler.available() }));
   ipcMain.handle('wm:focus', () => tiler.toggleFocus());
+  ipcMain.handle('wm:bringBack', () => tiler.bringBack());
   ipcMain.handle('wm:set', (_, which, patch) => (which === 'launcher' ? launcher.set(patch || {}) : tiler.set(patch || {})));
   studio.createAll();
   live.start();

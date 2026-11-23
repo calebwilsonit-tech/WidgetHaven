@@ -102,6 +102,7 @@ function setup(d) {
   // The tiler also uses the helper (to give a window its own desktop), even while the bar is off.
   let keepHelper = false;
   function vdMove(h) { keepHelper = true; startHelper(); return ask('vdnew ' + Math.round(+h), 'vd', 15000); }
+  function vdHome(h) { keepHelper = true; startHelper(); return ask('vdhome ' + Math.round(+h), 'vdhome', 8000); }
   function vdClean(id) { keepHelper = true; startHelper(); tell('vdclean ' + String(id).replace(/[^0-9a-f-]/gi, '')); }
   function ask(cmd, key, ms = 6000) {
     return new Promise((res) => {
@@ -550,6 +551,7 @@ function setup(d) {
       { type: 'separator' },
       d.getTiler && d.getTiler() ? { label: 'Tile windows (beta)', type: 'checkbox', checked: !!d.getTiler().cfg().enabled, click: (m) => d.getTiler().set({ enabled: m.checked }) } : null,
       d.getTiler && d.getTiler() && d.getTiler().cfg().enabled ? { label: 'Focus the active window   (Ctrl+Alt+Z)', type: 'checkbox', checked: d.getTiler().focused(), click: () => d.getTiler().toggleFocus() } : null,
+      d.getTiler && d.getTiler() && d.getTiler().movedAway() ? { label: 'Bring back windows Haven moved', click: () => d.getTiler().bringBack() } : null,
       { label: 'Tiling settings…', click: () => openStudio('wm') },
       { type: 'separator' },
       { label: 'Turn off the bar   (Ctrl+Alt+B)', click: () => set({ enabled: false }) },
@@ -584,7 +586,7 @@ function setup(d) {
     if (changed.includes('scaleFactor') || changed.includes('bounds')) setTimeout(start, 600);
   });
 
-  return { start, stop, set, refresh, cfg, status, DEFAULTS, MODULES, wins, statePayload, relDesktop, switchDesktop, vdMove, vdClean };
+  return { start, stop, set, refresh, cfg, status, DEFAULTS, MODULES, wins, statePayload, relDesktop, switchDesktop, vdMove, vdClean, vdHome };
 }
 
 module.exports = { setup, DEFAULTS, MODULES };

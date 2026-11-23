@@ -122,31 +122,43 @@ function setup({ store, save, palette, log, vd, barRadius }) {
     const r = ext(h), cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
     return ds.find((d) => cx >= d.bounds.x && cx < d.bounds.x + d.bounds.width && cy >= d.bounds.y && cy < d.bounds.y + d.bounds.height) || ds[0];
   }
+  const ratios = new Map(); // display id -> split ratios (your resizes)
+  const geom = new Map();   // display id -> where the splits are right now
   const REST_MIN = 360; // keep at least this much (px) for the remaining windows when widening a share
-  function split(area, n, inner, cfg, mins = []) {
+  // ratios[i]: how much of the space split i gives its first window (0.5 = even). Changed by resizing.
+  function split(area, n, inner, cfg, mins = [], ratios = []) {
     const out = [];
+    out.splits = [];
     const need = (i, dim) => (mins[i] && mins[i][dim]) || 0;
+    // What the windows after split i need at least (their known minimums), so a resize can't crowd them out.
+    const after = (i, dim) => Math.max(REST_MIN, ...mins.slice(i + 1).map((m) => (m && m[dim]) || 0));
+    const frac = (i) => Math.min(0.85, Math.max(0.15, ratios[i] ?? 0.5));
     if (cfg.layout === 'master' && n > 1) {
       let mw = Math.round(area.width * cfg.master / 100);
       mw = Math.max(mw, Math.min(need(0, 'w') + inner / 2, area.width - REST_MIN));
       out.push({ x: area.x, y: area.y, width: mw - inner / 2, height: area.height });
+      out.splits.push({ axis: 'x', start: area.x, size: area.width, end: area.x + mw - inner / 2, master: true });
       const sh = (area.height - inner * (n - 2)) / (n - 1);
       for (let i = 0; i < n - 1; i++) out.push({ x: area.x + mw + inner / 2, y: area.y + i * (sh + inner), width: area.width - mw - inner / 2, height: sh });
       return out;
     }
-    // dwindle: each new window halves the last space, alternating with the space's shape
+    // dwindle: each new window takes part of the last space, alternating with the space's shape
     let rest = { ...area };
     for (let i = 0; i < n; i++) {
       if (i === n - 1) { out.push(rest); break; }
       if (rest.width >= rest.height) {
-        let w = (rest.width - inner) / 2;
+        let w = (rest.width - inner) * frac(i);
+        w = Math.min(w, rest.width - inner - after(i, 'w'));
         w = Math.max(w, Math.min(need(i, 'w'), rest.width - inner - REST_MIN));
         out.push({ x: rest.x, y: rest.y, width: w, height: rest.height });
+        out.splits.push({ axis: 'x', start: rest.x, size: rest.width, end: rest.x + w });
         rest = { x: rest.x + w + inner, y: rest.y, width: rest.width - w - inner, height: rest.height };
       } else {
-        let hh = (rest.height - inner) / 2;
+        let hh = (rest.height - inner) * frac(i);
+        hh = Math.min(hh, rest.height - inner - after(i, 'h'));
         hh = Math.max(hh, Math.min(need(i, 'h'), rest.height - inner - REST_MIN));
         out.push({ x: rest.x, y: rest.y, width: rest.width, height: hh });
+        out.splits.push({ axis: 'y', start: rest.y, size: rest.height, end: rest.y + hh });
         rest = { x: rest.x, y: rest.y + hh + inner, width: rest.width, height: rest.height - hh - inner };
       }
     }
@@ -201,7 +213,9 @@ function setup({ store, save, palette, log, vd, barRadius }) {
       if (!prev.length) continue;
       const g = Math.round(cfg.outer * d.scale), gi = Math.round(cfg.inner * d.scale);
       const area = { x: d.area.x + g, y: d.area.y + g, width: d.area.width - g * 2, height: d.area.height - g * 2 };
-      split(area, prev.length, gi, cfg, prev.map((h) => minSize.get(h))).forEach((r, i) => {
+      const laid = split(area, prev.length, gi, cfg, prev.map((h) => minSize.get(h)), ratios.get(d.id) || []);
+      geom.set(d.id, { splits: laid.splits, inner: gi, list: prev.slice(), area });
+      laid.forEach((r, i) => {
         let to = { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) };
         if (prev[i] === focusWin) to = { ...area };
         moves.push({ h: prev[i], to, fresh: !known.has(prev[i]) });
@@ -245,8 +259,11 @@ function setup({ store, save, palette, log, vd, barRadius }) {
   // windows that were already happily tiled): it gets a desktop of its own, or floats.
   function overflowed(h) {
     const list = [...order.values()].find((l) => l.includes(h)) || [h];
-    const culprit = list.filter((x) => x === h || minSize.has(x)).sort((a, b) => (firstSeen.get(b) || 0) - (firstSeen.get(a) || 0))[0] || h;
-    if (vdPending.has(culprit) || ownDesk.has(culprit)) return;
+    // Only a window that just opened can be sent away. Windows already on your screen are never moved,
+    // even when you resize things: they stay tiled as best they can.
+    const fresh = (x) => Date.now() - (firstSeen.get(x) || 0) < 8000;
+    const culprit = list.filter((x) => (x === h || minSize.has(x)) && fresh(x)).sort((a, b) => (firstSeen.get(b) || 0) - (firstSeen.get(a) || 0))[0];
+    if (!culprit || vdPending.has(culprit) || ownDesk.has(culprit)) return;
     floating.add(culprit); // out of this layout while it moves
     if (S().overflow === 'desktop' && vd) {
       vdPending.add(culprit);
@@ -259,6 +276,10 @@ function setup({ store, save, palette, log, vd, barRadius }) {
     }
     autoFloat.add(culprit); centerFloat(culprit);
   }
+  // Runs once things settle, for every tiled window (a newer animation can replace an older one, so
+  // checking only that animation's windows could miss some).
+  let fitTimer = null;
+  function scheduleFit() { clearTimeout(fitTimer); fitTimer = setTimeout(() => checkFit([...slots].map(([h, to]) => ({ h, to }))), 700); }
   function checkFit(jobs) {
     let changed = false;
     for (const j of jobs) {
@@ -271,6 +292,9 @@ function setup({ store, save, palette, log, vd, barRadius }) {
       const known = minSize.get(j.h);
       const first = [...order.values()].some((list) => list[0] === j.h);
       minSize.set(j.h, { w: Math.max(w, known ? known.w : 0), h: Math.max(h, known ? known.h : 0) });
+      // A window that was already on screen keeps its place: the layout just makes room for its minimum
+      // (the splits never squeeze it below that). Only windows that just opened get rearranged or moved.
+      if (Date.now() - (firstSeen.get(j.h) || 0) > 8000) { changed = true; continue; }
       // Another window that can't shrink already holds the first tile: don't swap them back and forth.
       const frontTaken = [...order.values()].some((list) => list.includes(j.h) && list[0] !== j.h && minSize.has(list[0]));
       if (frontTaken) {
@@ -304,11 +328,12 @@ function setup({ store, save, palette, log, vd, barRadius }) {
         : { x: Math.round(cur.x + cur.width / 2 - m.to.width / 2), y: Math.round(cur.y + cur.height / 2 - m.to.height / 2) };
       jobs.push({ h: m.h, from, to: m.to, off });
     }
-    if (!jobs.length) return;
+    if (!jobs.length) { if (!noFit) scheduleFit(); return; }
     const cfg = S();
     const ms = !cfg.animate ? 0 : cfg.speed === 'fast' ? 160 : 260;
     // Check twice: some apps (Steam) only snap back to their minimum size a moment later.
-    const done = () => { if (!noFit) { setTimeout(() => checkFit(jobs), 120); setTimeout(() => checkFit(jobs), 700); } };
+    // Only judge once the app has settled (some redraw late), so a window still catching up isn't mistaken for one that can't shrink.
+    const done = () => { if (!noFit) scheduleFit(); };
     if (!ms) { place(jobs.map((j) => ({ h: j.h, r: j.to, off: j.off }))); done(); return; }
     const frame = (e) => place(jobs.map((j) => ({ h: j.h, off: j.off, r: { x: Math.round(j.from.x + (j.to.x - j.from.x) * e), y: Math.round(j.from.y + (j.to.y - j.from.y) * e), width: j.to.width, height: j.to.height } })));
     frame(0);
@@ -378,6 +403,11 @@ function setup({ store, save, palette, log, vd, barRadius }) {
     }
     if (ev === 0x8001 && ownDesk.has(h)) { const id = ownDesk.get(h); ownDesk.delete(h); setTimeout(() => vd && vd.clean(id), 600); }
     if ((ev === 0x8001 || ev === 0x8003 || ev === 0x0016) && autoFloat.size && tiledNow.has(h)) { for (const f of autoFloat) floating.delete(f); autoFloat.clear(); }
+    // Only these change the layout: show/hide/destroy, minimize/restore, and desktop switches (cloak/uncloak).
+    // Everything else in the hooked ranges (menus, mouse capture, dialogs…) is ignored.
+    if (![0x8001, 0x8002, 0x8003, 0x0016, 0x0017, 0x8017, 0x8018].includes(ev)) return;
+    // Our own windows (bar, pop-ups) and windows we don't tile never trigger a re-layout.
+    if (ev !== 0x8001 && ev !== 0x8018 && ev !== 0x8017 && !tiledNow.has(h) && !(() => { try { return tileable(h); } catch { return false; } })()) return;
     soon(ev === 0x8002 || ev === 0x8018 ? 60 : 30);
   }
   // Some apps (Opera, for one) resize themselves after being placed, e.g. back to a size they remember.
@@ -415,6 +445,13 @@ function setup({ store, save, palette, log, vd, barRadius }) {
   }
   // Dragging a tiled window onto another one swaps them (like Hyprland); dropping it elsewhere snaps it back.
   function dropped(h) {
+    const before = slots.get(h);
+    if (before) {
+      const e = ext(h);
+      const changedSize = Math.abs((e.right - e.left) - before.width) > 8 || Math.abs((e.bottom - e.top) - before.height) > 8;
+      if (changedSize) { resized(h, before, e); return; }
+    }
+    // A move: dropping a window onto another swaps them; dropping it elsewhere snaps it back.
     const p = {};
     k.GetCursorPos(p);
     for (const list of order.values()) {
@@ -425,6 +462,57 @@ function setup({ store, save, palette, log, vd, barRadius }) {
     }
     soon(10);
   }
+  // You dragged an edge of a tiled window: find the split on that edge and move it there.
+  function resized(h, old, e) {
+    const edges = [
+      ['x', old.x, e.left, 'near'], ['x', old.x + old.width, e.right, 'far'],
+      ['y', old.y, e.top, 'near'], ['y', old.y + old.height, e.bottom, 'far'],
+    ].map(([axis, was, now, side]) => ({ axis, was, now, side, moved: Math.abs(now - was) })).sort((a, b) => b.moved - a.moved);
+    const ed = edges[0];
+    for (const [id, g] of geom) {
+      if (!g.list.includes(h)) continue;
+      for (const w of g.list) minSize.delete(w); // your resize wins over remembered sizes
+      const cfg = S();
+      for (let j = 0; j < g.splits.length; j++) {
+        const sp = g.splits[j];
+        if (sp.axis !== ed.axis) continue;
+        // The edge sits either at the end of the split's first part, or (after the gap) the start of its second part.
+        const atEnd = Math.abs(ed.was - sp.end) <= 4, atStart = Math.abs(ed.was - (sp.end + g.inner)) <= 4;
+        if (!atEnd && !atStart) continue;
+        const newEnd = atEnd ? ed.now : ed.now - g.inner;
+        const f = Math.min(0.85, Math.max(0.15, (newEnd - sp.start) / (sp.size - g.inner)));
+        if (sp.master) { store.settings.tiler = { ...S(), master: Math.round(f * 100) }; save(); }
+        else { const r = (ratios.get(id) || []).slice(); r[j] = f; ratios.set(id, r); }
+        break;
+      }
+      void cfg;
+    }
+    soon(10);
+  }
+  // Keyboard: grow or shrink the active window, or even everything out.
+  function nudge(delta) {
+    const h = Number(k.GetForegroundWindow());
+    for (const [id, g] of geom) {
+      const i = g.list.indexOf(h);
+      if (i < 0) continue;
+      for (const w of g.list) minSize.delete(w);
+      if (S().layout === 'master' && g.list.length > 1) {
+        const m = Math.min(85, Math.max(15, S().master + (i === 0 ? delta : -delta) * 100));
+        store.settings.tiler = { ...S(), master: Math.round(m) }; save();
+      } else {
+        const r = (ratios.get(id) || []).slice();
+        // Its own split (it's the first part) or, for the last window, the one before (it's the second part).
+        const j = i < g.splits.length ? i : i - 1;
+        if (j < 0) return;
+        const sign = i < g.splits.length ? 1 : -1;
+        r[j] = Math.min(0.85, Math.max(0.15, (r[j] ?? 0.5) + delta * sign));
+        ratios.set(id, r);
+      }
+      retile();
+      return;
+    }
+  }
+  function evenOut() { ratios.clear(); minSize.clear(); store.settings.tiler = { ...S(), master: 55 }; save(); retile(); }
   function hook(on) {
     if (!k) return;
     for (const hk of hooks) k.UnhookWinEvent(hk);
@@ -449,11 +537,12 @@ function setup({ store, save, palette, log, vd, barRadius }) {
     'Ctrl+Alt+Enter': () => execFile('wt.exe', [], (err) => { if (err) execFile('cmd.exe', ['/c', 'start', 'cmd.exe']); }),
     'Ctrl+Alt+P': () => { paused = !paused; if (!paused) retile(); },
     'Ctrl+Alt+Z': () => toggleFocus(),
+    'Ctrl+Alt+=': () => nudge(0.05), 'Ctrl+Alt+-': () => nudge(-0.05), 'Ctrl+Alt+0': () => evenOut(),
   };
   let keysOn = false;
   function keys(on) {
     if (on === keysOn) return;
-    for (const [acc, fn] of Object.entries(KEYS)) { try { if (on) globalShortcut.register(acc, fn); else globalShortcut.unregister(acc); } catch {} }
+    for (const [acc, fn] of Object.entries(KEYS)) { try { if (on) { if (!globalShortcut.register(acc, fn)) log && log('tiling shortcut taken by another app: ' + acc); } else globalShortcut.unregister(acc); } catch {} }
     keysOn = on;
   }
   function neighbor(dx, dy) {
@@ -535,6 +624,19 @@ function setup({ store, save, palette, log, vd, barRadius }) {
     if (on) fmTimer = setInterval(followTick, 25);
   }
 
+  // Bring back every window Haven moved to a desktop of its own (and remove those desktops).
+  async function bringBack() {
+    if (!vd) return 0;
+    const moved = [...ownDesk.entries()];
+    for (const [h, id] of moved) {
+      if (k.IsWindow(h) && vd.home) await vd.home(h);
+      ownDesk.delete(h); minSize.delete(h); floating.delete(h); autoFloat.delete(h);
+      setTimeout(() => vd.clean(id), 400);
+    }
+    soon(200);
+    return moved.length;
+  }
+
   // ------------------------------------------------------------ app window corners
   // Windows 11 lets any window be square, slightly rounded or rounded (DWMWA_WINDOW_CORNER_PREFERENCE).
   // Applied to every app window, and to new ones as they open, whether or not tiling is on.
@@ -595,6 +697,7 @@ function setup({ store, save, palette, log, vd, barRadius }) {
 
   return {
     apply, set, cfg: S, retile, available: () => !!k, toggleFocus, focused: () => !!focusWin, applyCorners,
+    bringBack, movedAway: () => ownDesk.size,
     // On quit, app windows go back to Windows' normal corners.
     stop: () => { follow(false); hook(false); keys(false); tiledNow.clear(); borders(); if (k) { for (const h of cornered) if (k.IsWindow(h)) setCorner(h, 0); cornered.clear(); } },
     KEYS: Object.keys(KEYS),
