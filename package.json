@@ -43,6 +43,7 @@
     ],
     "asarUnpack": [
       "src/icons.ps1",
+      "src/native/**",
       "node_modules/koffi/**",
       "node_modules/@koromix/**"
     ],

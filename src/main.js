@@ -12,7 +12,9 @@ const desktop = require('./desktop');
 const snap = require('./snap');
 const liveMod = require('./live');
 const studioMod = require('./studio-main');
-let studio = null, live = null;
+const barMod = require('./bar');
+const themesMod = require('./themes');
+let studio = null, live = null, bar = null, themes = null;
 let wallpaper = null;
 
 app.setAppUserModelId('app.haven.organizer');
@@ -61,6 +63,12 @@ const DEFAULT_SETTINGS = {
   studioDesigns: [],       // saved Studio widget designs
   customFonts: [],         // [{family, file}] font files added in Studio
   live: { ...liveMod.DEFAULTS },
+  bar: { ...barMod.DEFAULTS },
+  themeId: 'auto',         // Haven theme: 'auto' follows the wallpaper
+  customThemes: [],        // saved themes
+  themeOpts: { windowsMode: false },
+  desktopThemes: {},       // virtual desktop id -> theme id
+  barTaskbar: {},          // remembers the taskbar's auto-hide state while the bar manages it
 };
 
 function loadStore() {
@@ -71,7 +79,7 @@ function loadStore() {
     favorites: s.favorites || [],   // ordered ids
     groups: s.groups || [],         // [{id,name,emoji,color,items:[ids]}]
     notes: s.notes || '',
-    settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}), sources: { ...DEFAULT_SETTINGS.sources, ...((s.settings || {}).sources || {}) }, snap: { ...snap.DEFAULTS, ...((s.settings || {}).snap || {}) }, live: { ...liveMod.DEFAULTS, ...((s.settings || {}).live || {}) } },
+    settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}), sources: { ...DEFAULT_SETTINGS.sources, ...((s.settings || {}).sources || {}) }, snap: { ...snap.DEFAULTS, ...((s.settings || {}).snap || {}) }, live: { ...liveMod.DEFAULTS, ...((s.settings || {}).live || {}) }, bar: { ...barMod.DEFAULTS, ...((s.settings || {}).bar || {}) } },
     window: s.window || null,
     widgetWindow: s.widgetWindow || null,
     widgets: Array.isArray(s.widgets) ? s.widgets : [], // [{id, view, opacity, glass, tileSize, bounds}]
@@ -774,6 +782,8 @@ function buildTray() {
     { label: 'Settings', click: () => { toggleWindow(true); send('open-settings'); } },
     { type: 'separator' },
     { label: 'Haven Studio…', click: () => studio.openEditor({ tab: 'widgets' }) },
+    { label: 'Haven Bar   (Ctrl+Alt+B)', type: 'checkbox', checked: !!(store.settings.bar && store.settings.bar.enabled), click: (m) => bar.set({ enabled: m.checked }) },
+    { label: 'Theme', submenu: [...themes.all().map((t) => ({ label: t.name, type: 'radio', checked: t.id === themes.currentId(), click: () => themes.apply(t.id) })), { type: 'separator' }, { label: 'Themes…', click: () => studio.openEditor({ tab: 'themes' }) }] },
     { label: 'Live wallpaper', type: 'checkbox', checked: !!(store.settings.live && store.settings.live.enabled), click: (m) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: m.checked }; save(); live.update(); studio.notifyEditor(); } },
     studio.hasClickThrough() ? { label: 'Make floating widgets clickable again', click: () => studio.stopClickThrough() } : null,
     { type: 'separator' },
@@ -1026,17 +1036,24 @@ ipcMain.on('win:quit', () => { quitting = true; app.quit(); });
 
 // ---------------------------------------------------------------- lifecycle
 app.on('second-instance', () => toggleWindow(true));
-app.on('before-quit', () => { quitting = true; if (live) live.stop(); saveNow(); });
+app.on('before-quit', () => { quitting = true; if (live) live.stop(); if (bar) bar.stop(); saveNow(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => {});
 
 app.whenReady().then(async () => {
   registerProtocol();
-  wallpaper = desktop.watchWallpaper((p) => { wallpaper = p; send('theme:wallpaper', p); if (live) live.update(); if (studio) studio.notifyEditor(); });
-  live = liveMod.setup({ getSettings: () => store.settings, getWallpaper: () => wallpaper, desktop, webPrefs: WEB_PREFS, dataDir: DATA_DIR, log: console.warn });
+  wallpaper = desktop.watchWallpaper((p) => { wallpaper = p; send('theme:wallpaper', themes.themedWallpaper()); if (live) live.update(); if (studio) studio.notifyEditor(); if (bar) bar.refresh(); });
+  themes = themesMod.setup({ store, save, desktop, getWallpaper: () => wallpaper, dataDir: DATA_DIR, onApplied: themeApplied, log: console.warn });
+  live = liveMod.setup({ getSettings: () => store.settings, getWallpaper: () => themes.themedWallpaper(), desktop, webPrefs: WEB_PREFS, dataDir: DATA_DIR, log: console.warn });
   studio = studioMod.setup({
-    store, save, desktop, webPrefs: WEB_PREFS, makeLogo, dataDir: DATA_DIR, getWallpaper: () => wallpaper, live, withDialog,
+    store, save, desktop, webPrefs: WEB_PREFS, makeLogo, dataDir: DATA_DIR, getWallpaper: () => themes.themedWallpaper(), live, withDialog,
     isDragging: (w) => dragging.has(w.id), isQuitting: () => quitting,
+  });
+  bar = barMod.setup({
+    store, save, desktop, webPrefs: WEB_PREFS, makeLogo, themes, log: console.warn,
+    wallpaperURL: () => studio.wallpaperURL(), customFonts: () => studio.fontsList(),
+    launchItem: (id) => launch(id), toggleHub: () => toggleWindow(), openStudio: (tab) => studio.openEditor({ tab }),
+    favorites: () => store.favorites.map((id) => library.get(id)).filter(Boolean).map((it) => ({ id: it.id, name: it.customName || it.name, icon: 'haven://icon/' + encodeURIComponent(it.id) + '?v=hd' })),
   });
   screen.on('display-metrics-changed', () => {
     if (win && isWidget() && !boundsVisible(win.getBounds())) win.setBounds(defaultBounds(true));
@@ -1047,9 +1064,23 @@ app.whenReady().then(async () => {
   for (const rec of store.widgets) createWidgetWindow(rec);
   studio.createAll();
   live.start();
+  bar.start();
   ensureOverlay(); // preload the guide layer so the first drag draws instantly
   buildTray();
   applyHotkey(store.settings.hotkey);
   applySettings();
   await rescan();
+  if (bar) bar.refresh();
 });
+
+// A theme was picked: recolor everything Haven draws.
+function themeApplied(prev) {
+  applySettings(prev);
+  save();
+  broadcast();
+  send('theme:wallpaper', themes.themedWallpaper());
+  if (studio) { studio.pushAll(); studio.notifyEditor(); }
+  if (live) live.update();
+  if (bar) bar.refresh();
+  send('theme:changed', themes.list());
+}

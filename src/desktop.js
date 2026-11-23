@@ -30,7 +30,21 @@ try {
       IsZoomed: lib.func('bool __stdcall IsZoomed(intptr_t hwnd)'),
       IsWindow: lib.func('bool __stdcall IsWindow(intptr_t hwnd)'),
       SystemParametersInfoW: lib.func('bool __stdcall SystemParametersInfoW(uint32_t action, uint32_t param, void *pv, uint32_t winIni)'),
+      keybd_event: lib.func('void __stdcall keybd_event(uint8_t vk, uint8_t scan, uint32_t flags, uintptr_t extra)'),
+      SetForegroundWindow: lib.func('bool __stdcall SetForegroundWindow(intptr_t hwnd)'),
+      ShowWindow: lib.func('bool __stdcall ShowWindow(intptr_t hwnd, int cmd)'),
+      IsIconic: lib.func('bool __stdcall IsIconic(intptr_t hwnd)'),
+      PostMessageW: lib.func('bool __stdcall PostMessageW(intptr_t hwnd, uint32_t msg, uintptr_t w, intptr_t l)'),
+      LockWorkStation: lib.func('bool __stdcall LockWorkStation()'),
+      SendMessageTimeoutStr: lib.func('__stdcall', 'SendMessageTimeoutW', 'intptr_t', ['intptr_t', 'uint32_t', 'uintptr_t', 'str16', 'uint32_t', 'uint32_t', 'void *']),
     });
+    try {
+      const shell = koffi.load('shell32.dll');
+      const ABD = koffi.struct('HAVEN_APPBARDATA', { cbSize: 'uint32', hWnd: 'intptr_t', uCallbackMessage: 'uint32', uEdge: 'uint32', rc: RECT, lParam: 'intptr_t' });
+      user32.ABD = ABD;
+      user32.ABD_SIZE = koffi.sizeof(ABD);
+      user32.SHAppBarMessage = shell.func('uintptr_t __stdcall SHAppBarMessage(uint32_t msg, _Inout_ HAVEN_APPBARDATA *data)');
+    } catch (e) { console.warn('App bar APIs unavailable:', e.message); }
   } catch (e) { console.warn('Live wallpaper APIs unavailable:', e.message); }
   try {
     const dwm = koffi.load('dwmapi.dll');
@@ -278,11 +292,107 @@ function foregroundState(displaysPhys) {
     const r = {};
     user32.GetWindowRect(h, r);
     const fullscreen = (displaysPhys || []).some((d) => r.left <= d.x && r.top <= d.y && r.right >= d.x + d.width && r.bottom >= d.y + d.height);
-    return { pid: pid[0], fullscreen, maximized: !!user32.IsZoomed(h), cls };
+    return { pid: pid[0], fullscreen, maximized: !!user32.IsZoomed(h), cls, hwnd: h, rect: { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top } };
   } catch { return null; }
 }
 
+// ------------------------------------------------------------------ Haven Bar helpers
+const KEYUP = 2, EXT = 1;
+const EXTENDED = new Set([0x25, 0x26, 0x27, 0x28, 0x5B, 0x5C]);
+// Press a key combo, e.g. [0x11, 0x5B, 0x27] = Ctrl+Win+Right.
+function keyCombo(vks) {
+  if (!user32 || !user32.keybd_event) return false;
+  try {
+    for (const v of vks) user32.keybd_event(v, 0, EXTENDED.has(v) ? EXT : 0, 0);
+    for (const v of [...vks].reverse()) user32.keybd_event(v, 0, (EXTENDED.has(v) ? EXT : 0) | KEYUP, 0);
+    return true;
+  } catch { return false; }
+}
+function focusWindow(h) {
+  if (!user32 || !user32.SetForegroundWindow) return;
+  try {
+    if (user32.IsIconic(h)) user32.ShowWindow(h, 9 /* SW_RESTORE */);
+    // A tapped Alt lets a background process hand the foreground to another window.
+    user32.keybd_event(0x12, 0, 0, 0);
+    user32.SetForegroundWindow(h);
+    user32.keybd_event(0x12, 0, KEYUP, 0);
+  } catch {}
+}
+function minimizeWindow(h) { try { user32.ShowWindow(h, 6 /* SW_MINIMIZE */); } catch {} }
+function closeWindow(h) { try { user32.PostMessageW(h, 0x10 /* WM_CLOSE */, 0, 0); } catch {} }
+function lockWorkstation() { try { user32.LockWorkStation(); } catch {} }
+function foregroundHwnd() { try { return Number(user32.GetForegroundWindow()); } catch { return 0; } }
+// Hide/show a window from Alt+Tab and keep it on every virtual desktop (tool window style).
+function setToolWindow(win) {
+  if (!user32) return;
+  try {
+    const h = hwndOf(win);
+    let ex = Number(user32.GetWindowLongPtrW(h, GWL_EXSTYLE));
+    user32.SetWindowLongPtrW(h, GWL_EXSTYLE, (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW);
+    noBorder(h, true);
+  } catch {}
+}
+
+// App bar: reserves a strip of the screen (like the taskbar) so maximized windows stop at the bar.
+// rect: physical pixels of the monitor; edge 'top' | 'bottom'; thickness in physical pixels.
+const ABM = { NEW: 0, REMOVE: 1, QUERYPOS: 2, SETPOS: 3, GETSTATE: 4, SETSTATE: 10 };
+const appbars = new Map();
+function appbarSet(win, edge, mon, thickness, callbackMsg) {
+  if (!user32 || !user32.SHAppBarMessage) return null;
+  try {
+    const h = hwndOf(win);
+    const d = { cbSize: user32.ABD_SIZE, hWnd: h, uCallbackMessage: callbackMsg || 0, uEdge: edge === 'bottom' ? 3 : 1, rc: { left: 0, top: 0, right: 0, bottom: 0 }, lParam: 0 };
+    if (!appbars.has(h)) { user32.SHAppBarMessage(ABM.NEW, d); appbars.set(h, true); }
+    d.rc = edge === 'bottom'
+      ? { left: mon.x, right: mon.x + mon.width, top: mon.y + mon.height - thickness, bottom: mon.y + mon.height }
+      : { left: mon.x, right: mon.x + mon.width, top: mon.y, bottom: mon.y + thickness };
+    user32.SHAppBarMessage(ABM.QUERYPOS, d);
+    if (edge === 'bottom') d.rc.top = d.rc.bottom - thickness; else d.rc.bottom = d.rc.top + thickness;
+    user32.SHAppBarMessage(ABM.SETPOS, d);
+    const r = d.rc;
+    user32.SetWindowPos(h, -1 /* HWND_TOPMOST */, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP.NOACTIVATE);
+    return { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top };
+  } catch (e) { console.warn('appbar failed', e.message); return null; }
+}
+function appbarRemove(win) {
+  if (!user32 || !user32.SHAppBarMessage) return;
+  try {
+    const h = typeof win === 'number' ? win : hwndOf(win);
+    if (!appbars.has(h)) return;
+    appbars.delete(h);
+    user32.SHAppBarMessage(ABM.REMOVE, { cbSize: user32.ABD_SIZE, hWnd: h, uCallbackMessage: 0, uEdge: 0, rc: { left: 0, top: 0, right: 0, bottom: 0 }, lParam: 0 });
+  } catch {}
+}
+function appbarRemoveAll() { for (const h of [...appbars.keys()]) appbarRemove(h); }
+// Windows taskbar auto-hide (ABS_AUTOHIDE = 1, ABS_ALWAYSONTOP = 2).
+function taskbarAutoHide(on) {
+  if (!user32 || !user32.SHAppBarMessage) return null;
+  try {
+    const tray = Number(user32.FindWindowW('Shell_TrayWnd', null));
+    const d = { cbSize: user32.ABD_SIZE, hWnd: tray, uCallbackMessage: 0, uEdge: 0, rc: { left: 0, top: 0, right: 0, bottom: 0 }, lParam: 0 };
+    const cur = Number(user32.SHAppBarMessage(ABM.GETSTATE, d));
+    if (on === undefined) return !!(cur & 1);
+    d.lParam = on ? 1 : 2;
+    user32.SHAppBarMessage(ABM.SETSTATE, d);
+    return on;
+  } catch { return null; }
+}
+function setWallpaperFile(p) {
+  if (!user32 || !user32.SystemParametersInfoW || !p) return false;
+  try { return !!user32.SystemParametersInfoW(0x14, 0, Buffer.from(p + '\0', 'utf16le'), 3 /* update ini + broadcast */); } catch { return false; }
+}
+function currentWallpaperPath() {
+  if (!user32 || !user32.SystemParametersInfoW) return null;
+  try { const buf = Buffer.alloc(1040); user32.SystemParametersInfoW(0x73, 520, buf, 0); return buf.toString('utf16le').split('\0')[0] || null; } catch { return null; }
+}
+// Tell running apps that the light/dark setting changed.
+function broadcastThemeChange() {
+  try { user32.SendMessageTimeoutStr(0xFFFF, 0x1A, 0, 'ImmersiveColorSet', 2, 300, Buffer.alloc(8)); } catch {}
+}
+
 module.exports = {
+  keyCombo, focusWindow, minimizeWindow, closeWindow, lockWorkstation, foregroundHwnd, setToolWindow,
+  appbarSet, appbarRemove, appbarRemoveAll, taskbarAutoHide, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
   pin, sendToBottom, allowForeground, keyDown, moveTo, watchWallpaper, readWallpaper, available: () => !!user32,
   attachToWallpaper, refreshWallpaper, foregroundState, isWindowAlive, hwndOf, wallpaperFile,
 };

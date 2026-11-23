@@ -281,6 +281,7 @@ function setup(d) {
     replaceAll() { for (const r of store.studio) place(r); },
     lockAll(lock) { for (const w of wins.values()) if (!w.isDestroyed()) w.setMovable(!lock); pushAll(); },
     fontDir: FONT_DIR,
+    fontsList, wallpaperURL: wallpaperPreviewURL,
     wallpaperFile: () => path.join(dataDir, 'studio-wallpaper.img'),
     stopClickThrough() { for (const r of store.studio) if (r.clickThrough) { r.clickThrough = false; const w = wins.get(r.id); if (w && !w.isDestroyed()) w.setIgnoreMouseEvents(false); } save(); notifyEditor(); },
     hasClickThrough: () => store.studio.some((r) => r.clickThrough),

@@ -6,6 +6,7 @@
   <title>Haven Studio</title>
   <link rel="stylesheet" href="fonts.css" />
   <link rel="stylesheet" href="studio.css" />
+  <link rel="stylesheet" href="bar.css" />
 </head>
 <body>
   <header class="bar">
@@ -13,6 +14,8 @@
     <nav class="tabs" id="tabs">
       <button data-tab="widgets" class="on">Widgets</button>
       <button data-tab="live">Live wallpaper</button>
+      <button data-tab="bar">Bar</button>
+      <button data-tab="themes">Themes</button>
     </nav>
     <span class="grow"></span>
     <button class="wb" id="bMin" title="Minimize">–</button>
@@ -59,10 +62,36 @@
     <aside class="right" id="liveOpts"></aside>
   </main>
 
+  <main id="pBar" class="live" hidden>
+    <section class="live-main">
+      <div class="bar-prev" id="barPrev"><div class="bar-prev-wall" id="barPrevWall"></div><div class="bar-prev-host" id="barPrevHost"></div><div class="bar-prev-win"></div></div>
+      <div class="live-head" style="margin:16px 0 6px">
+        <div><h2>Haven Bar</h2><p id="barStatus" class="muted"></p></div>
+        <button class="switch big" id="barOn" aria-label="Haven Bar on or off"></button>
+      </div>
+      <div class="sec-h"><h4>Modules — drag to arrange</h4></div>
+      <div class="zones" id="barZones"></div>
+      <div class="sec-h"><h4>More modules — drag onto the bar or click to add</h4></div>
+      <div class="spare" id="barSpare"></div>
+    </section>
+    <aside class="right" id="barOpts"></aside>
+  </main>
+
+  <main id="pThemes" class="live" hidden>
+    <section class="live-main">
+      <div class="live-head" style="margin-bottom:12px"><div><h2>Themes</h2><p class="muted">One click recolors the bar, Haven, your Studio widgets and the live wallpaper. <b>Auto</b> follows your wallpaper.</p></div></div>
+      <div id="themeSave" class="tsave"></div>
+      <div class="tgrid" id="themeGrid"></div>
+    </section>
+    <aside class="right" id="themeOpts"></aside>
+  </main>
+
   <div class="menu" id="menu" hidden></div>
   <div class="toast" id="toast" hidden></div>
   <script src="studio-core.js"></script>
   <script src="scenes.js"></script>
+  <script src="bar-core.js"></script>
   <script src="studio-editor.js"></script>
+  <script src="bar-editor.js"></script>
 </body>
 </html>

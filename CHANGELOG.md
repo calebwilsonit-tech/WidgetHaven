@@ -3,6 +3,29 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.2.0] — 2026-11-22
+
+### Added
+- **Haven Bar** (tray → *Haven Bar*, or **Ctrl+Alt+B**): a status bar in the style of Linux setups like Hyprland.
+  - Your virtual desktops as buttons: click to jump, scroll to flip through them, + to add one, and right-click to close one. Desktops with open windows look brighter.
+  - Open apps on the current desktop: click to switch to an app or minimize it, middle-click to close it.
+  - Clock and date, now playing (with play/pause and skip), CPU and memory, volume (scroll to change, click to mute), network, battery, notifications, quick settings, hidden tray icons and a power menu.
+  - Optional modules: active window title, your Haven favorites, and a theme switcher.
+  - Styles: Islands, Pills, Floating or Edge to edge, at the top or bottom. Height, gaps, roundness, opacity, frosted glass (a blur of your wallpaper), outline, shadow, glow and font are all adjustable.
+  - Drag modules between the left, middle and right in Studio → *Bar*, with a live preview.
+  - Reserves its own strip of the screen so maximized windows stop under it, and hides for fullscreen games and videos.
+  - Can auto-hide the Windows taskbar while it's on, and restores the taskbar when you turn the bar off.
+  - Shortcuts: Ctrl+Alt+1…9 jumps to a desktop and Ctrl+Alt+T switches theme.
+- **Themes** (Studio → *Themes*, the tray, or the bar's right-click menu): one click recolors the bar, Haven, your Studio widgets and the live wallpaper.
+  - **Auto** follows your wallpaper, as Haven always has.
+  - Built in: Mocha, Tokyo Night, Rosé, Gruvbox, Nord, Dracula, Everforest, Synthwave, Mono, Latte and Paper, each with a matching live wallpaper scene.
+  - Save your current look as a theme, optionally with your wallpaper picture, live wallpaper and bar layout.
+  - Give each virtual desktop its own theme, which switches as you move between desktops.
+  - Optionally switch Windows apps between light and dark mode to match.
+
+### Changed
+- The live wallpaper no longer restarts when the bar or the taskbar changes the usable screen area.
+
 ## [1.1.1] — 2026-11-22
 
 ### Fixed

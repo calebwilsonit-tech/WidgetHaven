@@ -63,7 +63,11 @@ function setTab(t) {
   $$('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
   $('#pWidgets').hidden = t !== 'widgets';
   $('#pLive').hidden = t !== 'live';
-  if (t === 'widgets') { renderLeft(); renderStage(); renderInspector(); } else { stopStage(); renderLive(); }
+  $('#pBar').hidden = t !== 'bar';
+  $('#pThemes').hidden = t !== 'themes';
+  if (t === 'widgets') { renderLeft(); renderStage(); renderInspector(); } else stopStage();
+  if (t === 'live') renderLive();
+  if (t === 'bar' || t === 'themes') window.BarEditor && window.BarEditor.show(t);
   if (t !== 'live') stopLivePreviews();
 }
 
@@ -77,7 +81,7 @@ api.on('studio:state', async (s) => {
     renderList(); renderSaved();
     if (prevWall !== s.wallpaperURL) { renderPresets(); renderStage(); }
     renderPlacement();
-  } else renderLiveStatus();
+  } else if (tab === 'live') renderLiveStatus();
 });
 api.on('studio:select', ({ tab: t, id }) => { if (id) selectWidget(id); if (t) setTab(t); });
 

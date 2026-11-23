@@ -136,7 +136,10 @@ function setup({ getSettings, getWallpaper, desktop, webPrefs, dataDir, log }) {
 
   screen.on('display-added', () => cfg().enabled && start());
   screen.on('display-removed', () => cfg().enabled && start());
-  screen.on('display-metrics-changed', () => cfg().enabled && setTimeout(start, 500));
+  // Only rebuild when a screen really changes size or scale (not when an app bar changes the work area).
+  screen.on('display-metrics-changed', (_, __, changed) => {
+    if (cfg().enabled && (changed || []).some((c) => c === 'bounds' || c === 'scaleFactor')) setTimeout(start, 500);
+  });
 
   return { start, stop, update, status, payload, DEFAULTS };
 }

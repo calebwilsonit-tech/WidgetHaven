@@ -60,6 +60,18 @@ contextBridge.exposeInMainWorld('haven', {
   liveSet: invoke('live:set'),
   livePick: invoke('live:pick'),
   liveGet: invoke('live:get'),
+  // Haven Bar + themes
+  barGet: invoke('bar:get'),
+  barSet: invoke('bar:set'),
+  barAction: invoke('bar:action'),
+  barMenu: invoke('bar:menu'),
+  themeList: invoke('theme:list'),
+  themeApply: invoke('theme:apply'),
+  themeSave: invoke('theme:save'),
+  themeDelete: invoke('theme:delete'),
+  themeOpts: invoke('theme:opts'),
+  themeDesktop: invoke('theme:desktop'),
+  themeScene: invoke('theme:scene'),
   closeWindow: () => ipcRenderer.send('win:closeSelf'),
   minimizeWindow: () => ipcRenderer.send('win:minimizeSelf'),
   pathForFile: (f) => { try { return webUtils.getPathForFile(f); } catch { return ''; } },
@@ -68,7 +80,7 @@ contextBridge.exposeInMainWorld('haven', {
   hide: () => ipcRenderer.send('win:hide'),
   quit: () => ipcRenderer.send('win:quit'),
   on: (ch, fn) => {
-    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw', 'studio:design', 'studio:state', 'studio:select', 'live:config', 'live:pause'];
+    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw', 'studio:design', 'studio:state', 'studio:select', 'live:config', 'live:pause', 'bar:config', 'bar:state', 'theme:changed'];
     if (!allowed.includes(ch)) return;
     ipcRenderer.on(ch, (_, data) => fn(data));
   },
