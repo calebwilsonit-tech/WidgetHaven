@@ -122,7 +122,7 @@ npm run icon          # regenerate build/icon.png if the logo changes
 1. Note the changes under a new heading in `CHANGELOG.md`.
 2. `npm run release:patch` (fixes) or `npm run release:minor` (new features). This bumps the version in
    `package.json`, commits, tags it (e.g. `v1.0.1`) and builds the installers.
-3. `git push --follow-tags`, then attach the files from `dist/` to the GitHub release for that tag.
+3. `git push --follow-tags`, then attach `Haven-Setup-<version>.exe`, its `.blockmap`, `latest.yml` and `Haven-Portable-<version>.exe` from `dist/` to the GitHub release for that tag. Installed copies read `latest.yml` to find updates, so always include it.
 
 Data lives in `%APPDATA%\Haven`. The screenshots use sample data.
 
