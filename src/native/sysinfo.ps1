@@ -199,7 +199,12 @@ function Get-Notes {
 }
 function Get-NoteCount { if (-not $script:notes) { return 0 }; try { (Await ($script:notes.GetNotificationsAsync([Windows.UI.Notifications.NotificationKinds]::Toast)) $script:noteType).Count } catch { 0 } }
 
-function Reply($what, $data) { $out.WriteLine('{"reply":"' + $what + '","data":' + $(if ($data -eq $null) { 'null' } else { ConvertTo-Json $data -Compress -Depth 5 }) + '}'); $out.Flush() }
+function Reply($what, $data) {
+  # Lists stay lists even with 0 or 1 entries (PowerShell would otherwise unwrap them).
+  $json = if ($what -in 'notes', 'procs') { if ($data -eq $null -or @($data).Count -eq 0) { '[]' } else { ConvertTo-Json -InputObject @($data) -Compress -Depth 5 } }
+          elseif ($data -eq $null) { 'null' } else { ConvertTo-Json -InputObject $data -Compress -Depth 5 }
+  $out.WriteLine('{"reply":"' + $what + '","data":' + $json + '}'); $out.Flush()
+}
 function Get-Brightness { try { [int](Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction Stop | Select-Object -First 1).CurrentBrightness } catch { -1 } }
 function Get-NetInfo {
   $cur = @(Get-NetConnectionProfile -ErrorAction SilentlyContinue | % { @{ name = "$($_.Name)"; alias = "$($_.InterfaceAlias)"; internet = ("$($_.IPv4Connectivity)" -eq 'Internet') } })
@@ -229,8 +234,28 @@ while ($true) {
       'move' { [HavenSys]::MoveToDesktop([long]$a[1], $a[2]) }
       'media' { Invoke-Media $a[1]; Start-Sleep -Milliseconds 250; $tick = 0 }
       'notes' { Reply 'notes' (Get-Notes) }
-      'noteRemove' { try { $script:notes.RemoveNotification([uint32]$a[1]) } catch {}; Reply 'notes' (Get-Notes); $tick = 0 }
-      'noteClear' { try { $script:notes.ClearNotifications() } catch {}; Reply 'notes' (Get-Notes); $tick = 0 }
+      'noteRemove' { try { $script:notes.RemoveNotification([uint32]$a[1]) } catch {}; Start-Sleep -Milliseconds 200; Reply 'notes' (Get-Notes); $tick = 0 }
+      'noteClear' {
+        # Remove them one by one (ClearNotifications doesn't reliably apply to desktop apps), then re-read.
+        try {
+          $all = Await ($script:notes.GetNotificationsAsync([Windows.UI.Notifications.NotificationKinds]::Toast)) $script:noteType
+          foreach ($x in @($all)) { try { $script:notes.RemoveNotification($x.Id) } catch {} }
+        } catch {}
+        Start-Sleep -Milliseconds 300
+        Reply 'notes' (Get-Notes); $noteCount = 0; $tick = 0
+      }
+      'toastTest' {
+        # Shows a test notification (used to check dismissing works).
+        try {
+          $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+          $null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime]
+          $x = [Windows.Data.Xml.Dom.XmlDocument]::new()
+          $x.LoadXml('<toast><visual><binding template="ToastGeneric"><text>Haven test</text><text>' + ($a[1..($a.Length - 1)] -join ' ') + '</text></binding></visual></toast>')
+          $aumid = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
+          [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($aumid).Show([Windows.UI.Notifications.ToastNotification]::new($x))
+        } catch {}
+        Start-Sleep -Milliseconds 600; Reply 'notes' (Get-Notes)
+      }
       'bright' { Reply 'bright' (Get-Brightness) }
       'setBright' { try { Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 1; Brightness = [byte]$a[1] } | Out-Null } catch {} }
       'net' { Reply 'net' (Get-NetInfo) }

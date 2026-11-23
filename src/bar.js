@@ -469,8 +469,8 @@ function setup(d) {
   });
   ipcMain.handle('flyout:do', async (e, kind, arg) => {
     switch (kind) {
-      case 'noteRemove': return ask('noteRemove ' + (+arg), 'notes');
-      case 'noteClear': return ask('noteClear', 'notes');
+      case 'noteRemove': return ask('noteRemove ' + (+arg), 'notes', 15000);
+      case 'noteClear': return ask('noteClear', 'notes', 20000);
       case 'bright': tell('setBright ' + Math.round(Math.max(0, Math.min(100, +arg)))); return true;
       case 'wifiConnect': return new Promise((r) => execFile('netsh.exe', ['wlan', 'connect', 'name=' + String(arg)], { windowsHide: true }, (err, out) => r(err ? String(out || err.message) : 'ok')));
       case 'wifiDisconnect': return new Promise((r) => execFile('netsh.exe', ['wlan', 'disconnect'], { windowsHide: true }, () => r('ok')));

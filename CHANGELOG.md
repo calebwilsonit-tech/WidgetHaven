@@ -3,6 +3,19 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.1] — 2026-11-22
+
+### Added
+- **Flat Blocks**, a new bar look: a flat dark strip with square blocks, monospace text and small accent highlights.
+
+### Changed
+- The bar looks now cover a real spread of shapes: 9 square or nearly square, 6 slightly rounded and 6 round. Square looks also get square desktop buttons and app highlights.
+- Bar islands have more room around their icons. Single-icon buttons (Wi-Fi, notifications, power…) are now wider rounded rectangles instead of tight circles.
+
+### Fixed
+- **Clear all** in the notifications panel now really clears them, and the list stays empty when you reopen it.
+- With exactly one notification, the notifications panel showed nothing.
+
 ## [1.3.0] — 2026-11-22
 
 ### Added

@@ -64,6 +64,8 @@
       root.dataset.look = c.look || 'solid';
       root.dataset.sep = c.sep || '';
       root.classList.toggle('upper', !!c.upper);
+      // Square-ish looks get square buttons and desktop markers too.
+      root.classList.toggle('square', c.style === 'full' || c.radius <= 4);
       root.dataset.pos = c.position;
       root.dataset.mode = p.mode;
       root.classList.toggle('glass', !!c.glass && !!payload.wallpaperURL);

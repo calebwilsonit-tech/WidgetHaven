@@ -219,3 +219,13 @@
 .hb[data-look="mono"] { --accent: var(--text); --accent2: var(--subtext); --accent-rgb: var(--text-rgb); --accent2-rgb: var(--subtext-rgb); }
 .hb[data-look="mono"] .hb-ws .w.on { background: var(--text); color: var(--base); }
 .hb-notify .badge { position: static; box-shadow: none; margin-left: -2px; }
+
+/* --- v1.3.1: islands breathe; single-icon buttons aren't tight circles; square looks get square parts --- */
+.hb[data-style="islands"] .hb-mod { padding: 0 6px; }
+.hb-btn { height: calc(var(--h) - 8px); }
+.hb-tasks .t { height: calc(var(--h) - 8px); }
+.m-network .hb-btn, .m-notify .hb-btn, .m-power .hb-btn, .m-quick .hb-btn, .m-tray .hb-btn, .m-launcher .hb-btn { min-width: calc(var(--h) + 6px); justify-content: center; }
+.hb.square .hb-btn, .hb.square .hb-tasks .t, .hb.square .hb-ws .w, .hb.square .hb-ws, .hb.square .hb-win { border-radius: 2px; }
+.hb.square .hb-ws .w.on { min-width: calc(var(--h) - 8px); }
+.hb.square .hb-ws.dots .w { border-radius: 1px; }
+.hb.square .hb-tasks .t::after { border-radius: 0; }
