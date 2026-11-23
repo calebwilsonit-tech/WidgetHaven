@@ -1621,6 +1621,10 @@ function openPanelDialog() {
 }
 
 // ================================================================ boot
+// Hairlines (the widget outline) are a whole number of screen pixels, so every edge looks the same at 125%/150% scaling.
+function setHairline() { const d = window.devicePixelRatio || 1; document.documentElement.style.setProperty('--hair', Math.max(1, Math.round(d)) / d + 'px'); }
+setHairline();
+window.addEventListener('resize', setHairline);
 (async function boot() {
   bind();
   ingest(await api.get());

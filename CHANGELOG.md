@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.5.2] — 2026-11-23
+
+### Fixed
+- The outline around widgets looks the same on every edge: it's a solid color (it was see-through, so it changed with whatever was behind it) and a whole number of screen pixels wide at 125%/150% display scaling.
+
 ## [1.5.1] — 2026-11-23
 
 ### Changed

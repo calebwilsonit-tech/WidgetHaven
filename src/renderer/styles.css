@@ -459,7 +459,7 @@ body.widget.locked .titlebar { cursor: default; }
    widget (handy for dragging/resizing); "always" keeps it. */
 body.widget::after {
   content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2; border-radius: var(--corner, 10px);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: inset 0 0 0 var(--hair, 1px) color-mix(in srgb, var(--accent) 45%, var(--bg-solid));
   opacity: 0; transition: opacity .25s ease;
 }
 body.widget[data-border="always"]::after, body.widget[data-border="hover"]:hover::after { opacity: 1; }
@@ -524,5 +524,6 @@ body.square.widget::after, body.soft-corners.widget::after { border-radius: var(
 body.square *::before, body.square *::after { border-radius: 2px !important; }
 body.square .switch::after { border-radius: 50% !important; }
 /* The outline reacts to the mouse: quiet at rest, lit with the accent while you hover the widget. */
-body.widget[data-border="always"]::after { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent); transition: opacity .25s ease, box-shadow .2s ease; }
-body.widget[data-border="always"]:hover::after, body.widget[data-border="hover"]:hover::after { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 90%, transparent), inset 0 0 14px color-mix(in srgb, var(--accent) 18%, transparent); }
+/* Solid (not see-through) and a whole number of screen pixels wide, so it looks the same on every edge whatever is behind it. */
+body.widget[data-border="always"]::after { box-shadow: inset 0 0 0 var(--hair, 1px) color-mix(in srgb, var(--accent) 34%, var(--bg-solid)); transition: opacity .25s ease, box-shadow .2s ease; }
+body.widget[data-border="always"]:hover::after, body.widget[data-border="hover"]:hover::after { box-shadow: inset 0 0 0 var(--hair, 1px) color-mix(in srgb, var(--accent) 90%, var(--bg-solid)), inset 0 0 14px color-mix(in srgb, var(--accent) 18%, transparent); }
