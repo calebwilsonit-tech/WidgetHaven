@@ -88,6 +88,11 @@ function pin(win, on) {
 }
 // Windows 11 draws a 1px accent/gray frame around windows; widgets shouldn't have one.
 const DWMWA_BORDER_COLOR = 34, DWMWA_COLOR_NONE = 0xFFFFFFFE, DWMWA_COLOR_DEFAULT = 0xFFFFFFFF;
+// Windows 11 rounds window corners; square looks turn that off (DWMWA_WINDOW_CORNER_PREFERENCE).
+function setCorners(win, round) {
+  if (!user32 || !user32.DwmSetWindowAttribute) return;
+  try { user32.DwmSetWindowAttribute(hwndOf(win), 33, [round ? 0 /* default */ : 1 /* do not round */], 4); } catch {}
+}
 function noBorder(h, on) {
   if (!user32 || !user32.DwmSetWindowAttribute) return;
   try { user32.DwmSetWindowAttribute(h, DWMWA_BORDER_COLOR, [on ? DWMWA_COLOR_NONE : DWMWA_COLOR_DEFAULT], 4); } catch {}
@@ -457,6 +462,6 @@ function broadcastThemeChange() {
 module.exports = {
   keyCombo, focusWindow, minimizeWindow, closeWindow, lockWorkstation, foregroundHwnd, setToolWindow,
   appbarSet, appbarRemove, appbarRemoveAll, appbarRemoveHandle, holdRect, taskbarAutoHide, showTaskbars, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
-  pin, sendToBottom, allowForeground, keyDown, moveTo, realBounds, placeNative, watchWallpaper, readWallpaper, available: () => !!user32,
+  pin, sendToBottom, allowForeground, keyDown, moveTo, realBounds, placeNative, setCorners, watchWallpaper, readWallpaper, available: () => !!user32,
   attachToWallpaper, refreshWallpaper, foregroundState, isWindowAlive, hwndOf, wallpaperFile,
 };

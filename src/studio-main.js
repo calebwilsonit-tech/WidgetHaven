@@ -127,7 +127,7 @@ function setup(d) {
   function editorState() {
     return {
       widgets: store.studio.map(pub), designs: S().studioDesigns || [], customFonts: fontsList(), wallpaper: getWallpaper(),
-      wallpaperURL: wallpaperPreviewURL(), live: { ...live.DEFAULTS, ...(S().live || {}) }, liveStatus: live.status(), editingId,
+      wallpaperURL: wallpaperPreviewURL(), lookSync: S().lookSync || 'off', live: { ...live.DEFAULTS, ...(S().live || {}) }, liveStatus: live.status(), editingId,
     };
   }
   function wallpaperPreviewURL() {

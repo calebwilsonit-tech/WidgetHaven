@@ -50,6 +50,9 @@ list.addEventListener('error', (e) => { const img = e.target; if (img.tagName !=
 api.on('launcher:open', (p) => {
   const r = document.documentElement.style;
   for (const k of ['base', 'surface', 'text', 'subtext', 'accent', 'accent2']) { r.setProperty('--' + k, p.palette[k]); r.setProperty('--' + k + '-rgb', hexRgb(p.palette[k])); }
+  const rad = p.radius ?? 22;
+  r.setProperty('--lr', Math.min(22, rad + 6) + 'px');
+  document.body.classList.toggle('square', rad <= 4);
   if (p.font) r.setProperty('--font', `"${p.font}", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif`);
   items = p.items || [];
   q.value = ''; sel = 0;

@@ -1245,6 +1245,12 @@ function applyTheme() {
     S.plateL = hexLum(pc);
   } else { root.style.removeProperty('--pc'); S.plateL = null; }
   document.body.classList.toggle('custom-plate', !!pc);
+  // Matching the bar: corner roundness and font.
+  if (s.widgetRadius != null) root.style.setProperty('--radius', s.widgetRadius + 'px'); else root.style.removeProperty('--radius');
+  document.body.classList.toggle('square', s.widgetRadius != null && s.widgetRadius <= 4);
+  document.body.classList.toggle('soft-corners', s.widgetRadius != null && s.widgetRadius > 4 && s.widgetRadius <= 10);
+  if (s.widgetFont) { const f = `"${s.widgetFont}", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif`; root.style.setProperty('--font', f); root.style.setProperty('--font-display', f); }
+  else { root.style.removeProperty('--font'); root.style.removeProperty('--font-display'); }
   // The main Haven window can stay solid while desktop widgets are see-through.
   const opacity = !IS_WIDGET && !IS_PANEL && s.hubSolid !== false ? 1 : pick('opacity', 72) / 100;
   root.style.setProperty('--tile', pick('tileSize', 96) + 'px');

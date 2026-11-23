@@ -145,3 +145,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px;
 .empty.cleared .ic { animation: ring .7s cubic-bezier(.3, 1.6, .5, 1) both; transform-origin: 50% 10%; }
 .empty.cleared b, .empty.cleared .small { animation: pop .35s ease .15s both; }
 @keyframes ring { 0% { transform: scale(.4) rotate(0); opacity: 0; } 40% { transform: scale(1.1) rotate(14deg); opacity: 1; } 60% { transform: rotate(-10deg); } 80% { transform: rotate(5deg); } 100% { transform: none; } }
+
+/* Panels follow the bar's corners: square bars get square panels. */
+.fp { border-radius: var(--pr, 18px); }
+body.square .fp, body.square .fp *:not(.ic):not(input[type=range]) { border-radius: 2px !important; }
+body.square .th .dots i { border-radius: 50% !important; }

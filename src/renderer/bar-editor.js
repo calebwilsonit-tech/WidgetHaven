@@ -218,11 +218,16 @@
         ${c.clock.showDate ? fld('Date', btext('clock.date', 'ddd MMM d')) + `<div class="chips" style="margin:0 0 8px 100px">${[['ddd MMM d', 'Mon Jun 3'], ['dddd', 'Monday'], ['d MMM', '3 Jun'], ['M/d', '6/3'], ['yyyy-MM-dd', '2025-06-03']].map(([f, l]) => `<button class="chip" data-df="${f}">${l}</button>`).join('')}</div>` : ''}
       </div>
       <div class="group"><h5>Open apps</h5>${fld('Show names', bsw('tasks.labels'))}<p class="hint">Click an app to switch to it (again to minimize), middle-click to close it.</p></div>
+      <div class="group"><h5>Match looks</h5>
+        ${fld('Widgets', `<div class="seg" id="lookSync">${[['off', 'Separate'], ['widgets', 'Follow the bar'], ['bar', 'Lead the bar']].map(([v, l]) => `<button data-v="${v}" class="${(ST.lookSync || 'off') === v ? 'on' : ''}">${l}</button>`).join('')}</div>`)}
+        <p class="hint" style="margin-left:100px">${{ off: 'The bar and your desktop widgets each keep their own look.', widgets: 'Your desktop widgets copy the bar: see-through amount, frosted glass, outline, corner roundness and font.', bar: 'The bar copies your desktop widgets\' see-through amount, frosted glass and outline.' }[ST.lookSync || 'off']} Colors always match through your theme.</p>
+      </div>
       <div class="group"><h5>Behavior</h5>
         ${fld('Screens', bseg('displays', [['primary', 'Main screen'], ['all', 'All screens']]))}
         ${fld('Shortcuts', bsw('shortcuts'), 'Ctrl+Alt+1…9 jumps to a desktop, Ctrl+Alt+T switches theme. Ctrl+Alt+B always shows or hides the bar.')}
       </div>
       <div class="group"><p class="hint">The bar reserves its own strip of the screen, so maximized windows stop right under it, and it hides itself when a game or video goes fullscreen.</p></div>`;
+    $$('#lookSync button', box).forEach((b) => (b.onclick = async () => { ST.lookSync = b.dataset.v; await api.setSettings({ lookSync: b.dataset.v }); B = await api.barGet(); renderBar(); }));
     $$('[data-bseg]', box).forEach((s) => $$('button', s).forEach((b) => (b.onclick = () => {
       const v = b.dataset.v;
       const patch = setPath(s.dataset.bseg, isNaN(+v) || v === '' ? v : +v);

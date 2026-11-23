@@ -72,6 +72,9 @@ const DEFAULT_SETTINGS = {
   desktopThemes: {},       // virtual desktop id -> theme id
   barTaskbar: {},          // remembers the taskbar's auto-hide state while the bar manages it
   hubSolid: true,          // the main Haven window stays opaque even when widgets are see-through
+  lookSync: 'off',         // 'off' | 'widgets' (desktop widgets match the bar) | 'bar' (the bar matches the widgets)
+  widgetRadius: null,      // corner roundness for widgets (px), set when widgets match the bar
+  widgetFont: null,        // font for widgets, set when widgets match the bar
   tiler: { ...tilerMod.DEFAULTS },
   launcher: { ...launcherMod.DEFAULTS },
 };
@@ -473,7 +476,7 @@ function createWidgetWindow(rec) {
     minimizable: false, maximizable: false, icon: makeLogo(64), title: 'Haven widget', webPreferences: WEB_PREFS,
   });
   w.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { widget: rec.id } });
-  w.once('ready-to-show', () => { w.showInactive(); desktop.pin(w, true); lockWin(w); });
+  w.once('ready-to-show', () => { w.showInactive(); desktop.pin(w, true); lockWin(w); const r = store.settings.widgetRadius; if (r != null && r <= 4) desktop.setCorners(w, false); });
   const persist = () => { const r = store.widgets.find((x) => x.id === rec.id); if (r && !w.isDestroyed() && !w.__refit) { r.bounds = w.getBounds(); rememberFrac(r, r.bounds); save(); } };
   w.on('moved', persist);
   w.on('resized', persist);
@@ -757,6 +760,9 @@ function applyHotkey(acc) {
 
 function applySettings(prev) {
   const s = store.settings;
+  // Square widgets (matching a square bar) also lose Windows 11's rounded window corners.
+  const roundCorners = !(s.widgetRadius != null && s.widgetRadius <= 4);
+  for (const w of widgetWins.values()) if (!w.isDestroyed()) desktop.setCorners(w, roundCorners);
   if (!win) return;
   if (prev && (prev.mode !== s.mode || prev.lockPosition !== s.lockPosition)) {
     const next = s.mode;
@@ -943,6 +949,7 @@ ipcMain.handle('look:all', (_, look) => {
     if (widgetGlass(w) !== glassBefore) recreateWidget(w.id);
   }
   applySettings(prev);
+  if (store.settings.lookSync === 'bar') syncLooks();
   return changed();
 });
 // Window geometry in screen DIPs, so the renderer can tell which patch of wallpaper is behind it.
@@ -1003,6 +1010,7 @@ ipcMain.handle('settings:set', async (_, patch) => {
   }
   applySettings(prev);
   save();
+  if (patch.lookSync !== undefined || (store.settings.lookSync === 'bar' && ['opacity', 'glass', 'border'].some((k) => k in patch))) syncLooks();
   if (patch.sources) rescan();
   broadcast();
   return { ...snapshot(), hotkeyOk };
@@ -1064,6 +1072,7 @@ app.whenReady().then(async () => {
     wallpaperURL: () => studio.wallpaperURL(), customFonts: () => studio.fontsList(),
     launchItem: (id) => launch(id), toggleHub: () => toggleWindow(), openStudio: (tab) => studio.openEditor({ tab }),
     getTiler: () => tiler,
+    onLook: (patch) => { if (store.settings.lookSync === 'widgets' && LOOK_FROM_BAR.some((k) => k in patch)) syncLooks(); },
     setLive: (on) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: on }; save(); live.update(); studio.notifyEditor(); },
     // Windows shoves windows out of the bar's strip a moment after it's reserved; refit after that.
     onReserved: (() => { let ts = []; return () => { ts.forEach(clearTimeout); ts = [250, 1000, 2200].map((ms) => setTimeout(refitToWorkAreas, ms)); }; })(),
@@ -1083,6 +1092,7 @@ app.whenReady().then(async () => {
   launcher = launcherMod.setup({
     store, save, webPrefs: WEB_PREFS, makeLogo, palette: () => themes.palette(), getFont: () => bar.cfg().font, log: console.warn,
     focusWin: (w) => desktop.focusWindow(desktop.hwndOf(w)),
+    getRadius: () => { const b = bar.cfg(); return b.style === 'full' ? 0 : b.radius; },
     launchItem: (id) => launch(id),
     items: () => publicItems().filter((it) => !it.hidden).map((it) => ({ id: it.id, name: it.name, type: it.type, launches: it.launches || 0, lastLaunched: it.lastLaunched || 0, icon: 'haven://icon/' + encodeURIComponent(it.id) + '?v=hd' })),
   });
@@ -1161,6 +1171,30 @@ function rememberFrac(rec, b) {
   const a = d.workArea;
   rec.frac = { x: (b.x - a.x) / a.width, y: (b.y - a.y) / a.height, w: b.width / a.width, h: b.height / a.height };
   rec.fracDisplay = d.id;
+}
+
+// Matching looks between the Haven Bar and the desktop widgets (colors already match through the theme).
+const LOOK_FROM_BAR = ['opacity', 'glass', 'border', 'radius', 'font', 'style', 'look'];
+function syncLooks() {
+  const mode = store.settings.lookSync;
+  if (!bar || mode === 'off' || !mode) return;
+  const b = bar.cfg();
+  if (mode === 'widgets') {
+    // Desktop widgets take the bar's look: opacity, frosted glass, outline, corner roundness and font.
+    const prev = { ...store.settings };
+    Object.assign(store.settings, {
+      opacity: b.opacity, glass: !!b.glass, border: b.border ? 'always' : 'none',
+      widgetRadius: b.style === 'full' ? 0 : Math.min(24, b.radius), widgetFont: b.font,
+    });
+    for (const w of store.widgets) { const g = widgetGlass(w); for (const k of ['opacity', 'glass', 'border']) w[k] = null; if (widgetGlass(w) !== g) recreateWidget(w.id); }
+    applySettings(prev);
+    save();
+    broadcast();
+  } else if (mode === 'bar') {
+    // The bar takes the widgets' look.
+    const s = store.settings;
+    bar.set({ opacity: Math.max(15, s.opacity ?? 72), glass: !!s.glass, border: s.border !== 'none', radius: s.widgetRadius ?? 14, font: s.widgetFont || 'Segoe UI Variable Display' }, { fromSync: true });
+  }
 }
 
 // A theme was picked: recolor everything Haven draws.

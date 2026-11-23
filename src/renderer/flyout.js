@@ -27,6 +27,9 @@ function applyPalette() {
   for (const k of ['base', 'mantle', 'surface', 'text', 'subtext', 'accent', 'accent2', 'red', 'green', 'yellow']) { r.setProperty('--' + k, p[k]); r.setProperty('--' + k + '-rgb', hexRgb(p[k])); }
   r.setProperty('--font', `"${P.config.font}", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif`);
   document.body.classList.toggle('bottom', P.config.position === 'bottom');
+  const rad = P.config.style === 'full' ? 0 : P.config.radius;
+  r.setProperty('--pr', Math.min(18, rad + 4) + 'px');
+  document.body.classList.toggle('square', rad <= 4);
 }
 const fit = () => requestAnimationFrame(() => api.flyoutSize(panel.scrollHeight));
 new ResizeObserver(fit).observe(panel);

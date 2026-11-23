@@ -1,20 +1,99 @@
-# Haven — desktop organizer widget
+# Haven — your Windows desktop, your way
 
-A glassy widget that lives on your Windows desktop and organizes your apps, games, files, folders and links.
-Its accent colors (and light/dark mode) follow your wallpaper automatically.
+Haven turns the Windows desktop into something you design. It organizes your apps, games, files and links in glassy widgets. It adds a Hyprland-style status bar, creative clocks, live wallpapers and one-click themes, plus an optional tiling window manager. Colors follow your wallpaper automatically, or come from a theme you pick.
+
+![Haven Bar looks](docs/screenshots/bar-looks.png)
 
 ## Install
 
 Download **`Haven-Setup-<version>.exe`** from the
 [latest release](https://github.com/calebwilsonit-tech/WidgetHaven/releases/latest) and run it. It installs per-user (no admin needed), adds Desktop
-and Start-menu shortcuts, and starts Haven when it's done. Prefer not to install? Use
+and Start-menu shortcuts, and starts Haven when it's done. If you'd rather not install it, use
 **`Haven-Portable-<version>.exe`** instead.
 
-> The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC" —
-> click **More info → Run anyway**.
+> The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC".
+> Click **More info → Run anyway**.
 
-Uninstall from **Settings → Apps → Installed apps → Haven**. Your favorites, groups and layouts are kept in
-`%APPDATA%\Haven` so a reinstall or update picks up right where you left off.
+Uninstall from **Settings → Apps → Installed apps → Haven**. Your favorites, groups, layouts and designs are kept in
+`%APPDATA%\Haven`, so a reinstall or update picks up right where you left off.
+
+## What's inside
+
+### The hub and desktop widgets
+
+![Haven hub](docs/screenshots/hub.png)
+
+- **Everything in one place:** Start-menu apps, Steam (with cover art), Epic, Microsoft Store/Xbox, desktop items and recent files are found automatically.
+- **Search everything** (`Ctrl+Alt+Space` from anywhere): fuzzy and initials matching, a `=12*8` calculator, and `g` / `yt` / `w` / `r` / `gh` web searches.
+- **Favorites and groups** with drag-and-drop ordering. Drop files from Explorer to add them; rename, hide, run as admin or add launch arguments.
+- **Desktop widgets:** split the hub into separate widgets (Favorites, Apps, Games, Folders, any group), each with its own look.
+  - Widgets sit behind your windows and survive Win+D.
+  - They snap to screen edges, the center and each other, with smart guides and even gaps.
+  - The gap to the screen edges matches the gap between widgets.
+- **Layouts:** Grid, Side column, Bottom dock, Gamer, Focus and Corner, or save your own. Widgets refit themselves when the bar or taskbar changes the usable screen space.
+- **Readable anywhere:** see-through widgets read the patch of wallpaper behind them and choose readable text.
+
+### Haven Bar
+
+![Haven Bar settings](docs/screenshots/studio-bar.png)
+
+A status bar in the style of Hyprland and Waybar setups (`Ctrl+Alt+B` turns it on or off).
+
+- **Desktop buttons** for your virtual desktops (click to jump, scroll to flip, + to add), plus open apps, the active window title, clock, now playing, CPU and memory, volume, network, battery, notifications and power.
+- **21 ready-made looks**, from flat square blocks to rounded pills and neon glass. You can also build your own from styles (islands, pills, floating, edge to edge), looks (solid, colorful, outline, underline, minimal, neon, soft, brutalist, gradient, mono), fonts, separators and frosted glass. Drag modules between left, middle and right.
+- **Haven's own panels** instead of the Windows flyouts:
+  - **Clock:** a calendar.
+  - **Notifications:** your real Windows notifications, with dismiss and clear-all animations.
+  - **Network:** your Wi-Fi networks.
+  - **Sound:** volume and what's playing.
+  - **Battery:** battery details and brightness.
+  - **CPU & memory:** usage and the apps using the most memory.
+  - **Power:** lock, sleep, restart and shut down.
+  - **Quick settings:** a control center.
+- **Windows taskbar:** *Show*, *Auto-hide* or *Hidden*. It always comes back when the bar is off or Haven quits.
+- The bar reserves its own strip of the screen, so maximized windows stop below it, and it hides for fullscreen games.
+- **Match looks:** your desktop widgets can copy the bar's opacity, glass, outline, corners and font, or the bar can copy the widgets. The panels and launcher follow the bar's corners too.
+
+<img src="docs/screenshots/panel-calendar.png" width="300" alt="Calendar panel">
+
+### Themes
+
+![Themes](docs/screenshots/studio-themes.png)
+
+One click recolors the bar, Haven, your Studio widgets and the live wallpaper.
+
+- **Auto** follows your wallpaper.
+- **Built-in themes:** Mocha, Tokyo Night, Rosé, Gruvbox, Nord, Dracula, Everforest, Synthwave, Mono, Latte and Paper. Each has a matching live wallpaper.
+- **Your own themes:** save your current look as a theme, including your wallpaper, live wallpaper and bar layout.
+- **Per desktop:** give each virtual desktop its own theme.
+- **Windows too:** optionally switch Windows' own light/dark mode to match.
+
+### Haven Studio: creative widgets and live wallpaper
+
+![Haven Studio](docs/screenshots/studio-widgets.png)
+
+- **Design your own desktop widgets:** digital, analog, flip and word clocks, dates, countdowns and text. Use any font (12 are bundled, or add your own), gradients, glow and shadows.
+  - Start from 12 looks, then save, export and share your designs.
+  - Widgets anchor to the center, top middle or any corner and stay put.
+- **Live wallpaper:** animated scenes (Aurora, Liquid, Synthwave, Night sky, Bokeh), rain, snow or fireflies over your own wallpaper, or a looping video or GIF. It runs behind your desktop icons and pauses for games and fullscreen apps.
+
+### Tiling windows (beta) and the launcher
+
+![Tiling windows](docs/screenshots/studio-windows.png)
+
+Hyprland-style automatic tiling for Windows. It's off by default; turn it on in Studio → Windows, the tray menu or the bar's right-click menu.
+
+- **Layouts and presets:** dwindle and master layouts with adjustable gaps, plus presets (Hyprland default, Tight, Airy, Focus, Wide master, Calm, Seamless, No animation).
+- **Smooth movement:** windows glide into place, and the active window gets an accent border that fades in.
+- **Focus follows mouse:** rest the pointer on a window to switch to it.
+- **Focus mode** (`Ctrl+Alt+Z` or the maximize button): the active window fills the tiled area.
+- **Apps with a minimum size**, like Steam, get room made for them. If there's truly no space, they float or go to a virtual desktop of their own (your choice).
+- **Keys:** `Ctrl+Alt+arrows` to move focus, add `Shift` to swap windows, `Ctrl+Alt+F` to float, `Ctrl+Alt+P` to pause, and drag a window onto another to swap them.
+- **Low overhead:** it only does work when a window opens, closes or moves.
+
+<img src="docs/screenshots/launcher.png" width="520" alt="App launcher">
+
+**App launcher:** `Win+S` (replacing Windows search, which you can switch back) or `Alt+Space` opens an animated search for your apps, games and files.
 
 ## Develop
 
@@ -36,29 +115,10 @@ npm run icon          # regenerate build/icon.png if the logo changes
 ## Releasing a new version
 
 1. Note the changes under a new heading in `CHANGELOG.md`.
-2. `npm run release:patch` (fixes) or `npm run release:minor` (new features) — bumps the version in
+2. `npm run release:patch` (fixes) or `npm run release:minor` (new features). This bumps the version in
    `package.json`, commits, tags it (e.g. `v1.0.1`) and builds the installers.
 3. `git push --follow-tags`, then attach the files from `dist/` to the GitHub release for that tag.
 
-## Highlights
-
-- **Haven Studio** (tray → *Haven Studio…*): design your own desktop clocks (digital, analog, flip, word clock), dates, countdowns and text. Choose any font, gradients or wallpaper-matched colors, glow and shadows. Start from 12 looks, then save, export and share designs. Widgets snap to the center, top middle or any corner and stay there.
-- **Live wallpaper** (Studio → *Live wallpaper*): animated scenes (Aurora, Liquid, Synthwave, Night sky, Bokeh), rain, snow or fireflies over your own wallpaper, or a looping video or GIF, all behind your desktop icons. Pauses for games and fullscreen apps.
-- **Haven Bar** (Ctrl+Alt+B): a Hyprland-style status bar with virtual desktop buttons, open apps, clock, now playing, system stats, volume and quick buttons. Choose from islands, pills, floating or edge-to-edge styles with frosted glass, and arrange it by dragging in Studio.
-- **Themes**: one-click looks (Auto from your wallpaper, Mocha, Tokyo Night, Nord, Gruvbox, Dracula, Synthwave and more) that recolor the bar, Haven, your widgets and the live wallpaper. Save your own, or give each desktop its own theme.
-- **Tiling windows (beta)**: Hyprland-style automatic tiling with gaps, animations and an accent border on the active window, plus a Win+S app launcher. Off by default; switch it on in Studio → Windows.
-- **Desktop widget mode** (default): sits behind your windows, survives Win+D, no taskbar button. Lock its position from Settings or the tray icon.
-- **Split widgets**: tray icon → *Split into widgets* (or the layers button / right-click any sidebar tab → *Pop out*) puts each tab or group on the desktop as its own widget. Each widget's `⋯` menu has *Transparency & size* (opacity 0–100%, blur on/off, tile size), and the `⇅` button changes what it shows. *Merge widgets back* restores the single window.
-- **Customize** (`⋯` → *Customize look*): preset looks (Glass, Frosted, Clear, Outline, Bold, Tinted, Midnight) or save your own; Scale, Opacity and Tile size sliders; text backing Off/Subtle/Solid; apply to one widget or all.
-- **Layouts** (`⋯` → *Layouts*): Grid, Side column, Bottom dock, Gamer, Focus, Corner — or save your current arrangement.
-- **Snapping** (Settings → Widgets → Snapping): widgets snap to screen edges/center and to each other's edges, centers and an even gap, with PowerPoint-style smart guides. Hold **Shift** while dragging to drop into a zone (Quarters, Three columns, Halves, Right stack, Focus center, Six grid); hold **Alt** to place freely. Every part can be switched off.
-- **Readable anywhere**: when see-through, each widget reads the wallpaper patch behind it and picks outlined light/dark text plus label backing, even over mixed bright/dark images.
-- **Wallpaper theming**: accent + glow colors are pulled from your wallpaper and update when it changes.
-- **Auto-discovery**: Start menu apps, Steam (with cover art), Epic, Microsoft Store/Xbox, desktop items, Windows recent files.
-- **Search everything** (`Ctrl+Alt+Space` from anywhere): fuzzy + initials matching, `=12*8` calculator, `g`/`yt`/`w`/`r`/`gh` web search.
-- **Favorites & groups** with drag-and-drop ordering, drop files from Explorer to add, rename, hide, run as admin, launch arguments.
-- Notes scratchpad, backup/restore, start with Windows, keyboard shortcuts (see Settings → Shortcuts).
-
-Data lives in `%APPDATA%\Haven`.
+Data lives in `%APPDATA%\Haven`. The screenshots use sample data.
 
 Bundled fonts are from Google Fonts / Fontsource and are licensed under the SIL Open Font License (see `src/renderer/fonts/OFL-LICENSES.txt`).

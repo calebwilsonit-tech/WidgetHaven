@@ -3,6 +3,16 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.14] — 2026-11-22
+
+### Added
+- **Match looks** (Studio → Bar): your desktop widgets can follow the bar (see-through amount, frosted glass, outline, corner roundness and font), or the bar can follow the widgets. Colors always match through your theme.
+- Square bars now make everything square: widget tiles, cards, buttons and window corners, plus the bar's panels and the app launcher.
+- README rewritten, with screenshots of the bar looks, hub, Studio, themes, tiling and launcher.
+
+### Fixed
+- A widget's outline and its background didn't line up at the corners.
+
 ## [1.3.13] — 2026-11-22
 
 ### Added

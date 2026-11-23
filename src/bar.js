@@ -515,10 +515,11 @@ function setup(d) {
       default: if (['settings', 'themes', 'launcher', 'notify', 'quick', 'tray'].includes(kind)) hideFly(); return action(kind, arg, e.sender);
     }
   });
-  function set(patch) {
+  function set(patch, { fromSync } = {}) {
     const prev = cfg();
     S().bar = { ...prev, ...patch };
     save();
+    if (!fromSync && d.onLook) d.onLook(patch);
     if (GEOMETRY.some((k) => k in patch && patch[k] !== prev[k])) start();
     else { applyShortcuts(); applyTaskbar(); refresh(); }
     return cfg();

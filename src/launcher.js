@@ -6,7 +6,7 @@ const path = require('path');
 
 const DEFAULTS = { enabled: true, winS: true, altSpace: true };
 
-function setup({ store, save, webPrefs, makeLogo, items, launchItem, palette, getFont, focusWin, log }) {
+function setup({ store, save, webPrefs, makeLogo, items, launchItem, palette, getFont, getRadius, focusWin, log }) {
   const S = () => ({ ...DEFAULTS, ...(store.settings.launcher || {}) });
   let win = null, shownAt = 0;
 
@@ -27,7 +27,7 @@ function setup({ store, save, webPrefs, makeLogo, items, launchItem, palette, ge
     const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const a = d.workArea;
     w.setBounds({ x: Math.round(a.x + (a.width - 680) / 2), y: Math.round(a.y + a.height * 0.16), width: 680, height: 520 });
-    const send = () => w.webContents.send('launcher:open', { items: items(), palette: palette(), font: getFont() });
+    const send = () => w.webContents.send('launcher:open', { items: items(), palette: palette(), font: getFont(), radius: getRadius ? getRadius() : 22 });
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send); else send();
     shownAt = Date.now();
     w.show(); w.setAlwaysOnTop(true, 'pop-up-menu'); w.focus();
