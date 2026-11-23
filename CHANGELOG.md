@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.15] — 2026-11-22
+
+### Changed
+- Widget outlines react to the mouse: they stay quiet at rest and light up in your accent color while you hover a widget.
+
 ## [1.3.14] — 2026-11-22
 
 ### Added
