@@ -286,6 +286,12 @@ function attachToWallpaper(win, rect) {
     return { ok: true, mode: host.mode, parent: host.parent };
   } catch (e) { return { ok: false, error: e.message }; }
 }
+// Is a standard pop-up menu open anywhere (window class #32768, what right-click menus use)?
+function menuOpen() {
+  if (!user32) return false;
+  try { let h = 0; for (let i = 0; i < 6; i++) { h = Number(user32.FindWindowExW(0, h, '#32768', null)); if (!h) return false; if (user32.IsWindowVisible(h)) return true; } } catch {}
+  return false;
+}
 function isWindowAlive(h) { try { return !!user32.IsWindow(h); } catch { return false; } }
 // Repaint the normal wallpaper (used after the live wallpaper is turned off).
 function refreshWallpaper() {
@@ -311,7 +317,9 @@ function foregroundState(displaysPhys) {
     const r = {};
     user32.GetWindowRect(h, r);
     const fullscreen = (displaysPhys || []).some((d) => r.left <= d.x && r.top <= d.y && r.right >= d.x + d.width && r.bottom >= d.y + d.height);
-    return { pid: pid[0], fullscreen, maximized: !!user32.IsZoomed(h), cls, hwnd: h, rect: { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top } };
+    const style = Number(user32.GetWindowLongPtrW(h, GWL_STYLE));
+    const popup = ((style >>> 0) & 0x80000000) !== 0 && (style & 0x00C00000) !== 0x00C00000; // WS_POPUP, no title bar: menus
+    return { pid: pid[0], fullscreen, maximized: !!user32.IsZoomed(h), cls, popup, hwnd: h, rect: { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top } };
   } catch { return null; }
 }
 
@@ -381,10 +389,22 @@ function appbarSet(win, edge, mon, thickness, callbackMsg) {
     return { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top };
   } catch (e) { console.warn('appbar failed', e.message); return null; }
 }
+// Windows' own taskbar window. Haven's tray stand-in shares its class name, so look for the one that
+// actually contains things (the real taskbar has child windows; the stand-in has none).
+function realTaskbar() {
+  let h = 0, first = 0;
+  for (let i = 0; i < 8; i++) {
+    h = Number(user32.FindWindowExW(0, h, 'Shell_TrayWnd', null));
+    if (!h) break;
+    if (!first) first = h;
+    if (Number(user32.FindWindowExW(h, 0, null, null))) return h;
+  }
+  return first;
+}
 // Is a visible Windows taskbar docked to this monitor's top or bottom edge?
 function taskbarOnEdge(mon, edge) {
   try {
-    const list = [Number(user32.FindWindowW('Shell_TrayWnd', null))];
+    const list = [realTaskbar()];
     let h = 0;
     for (let i = 0; i < 16; i++) { h = Number(user32.FindWindowExW(0, h, 'Shell_SecondaryTrayWnd', null)); if (!h) break; list.push(h); }
     for (const t of list) {
@@ -427,7 +447,7 @@ function appbarRemoveAll() { for (const h of [...appbars.keys()]) appbarRemove(h
 function taskbarAutoHide(on) {
   if (!user32 || !user32.SHAppBarMessage) return null;
   try {
-    const tray = Number(user32.FindWindowW('Shell_TrayWnd', null));
+    const tray = realTaskbar();
     const d = { cbSize: user32.ABD_SIZE, hWnd: tray, uCallbackMessage: 0, uEdge: 0, rc: { left: 0, top: 0, right: 0, bottom: 0 }, lParam: 0 };
     const cur = Number(user32.SHAppBarMessage(ABM.GETSTATE, d));
     if (on === undefined) return !!(cur & 1);
@@ -440,7 +460,7 @@ function taskbarAutoHide(on) {
 function showTaskbars(on) {
   if (!user32 || !user32.ShowWindow) return;
   try {
-    const list = [Number(user32.FindWindowW('Shell_TrayWnd', null))];
+    const list = [realTaskbar()];
     let h = 0;
     for (let i = 0; i < 16; i++) { h = Number(user32.FindWindowExW(0, h, 'Shell_SecondaryTrayWnd', null)); if (!h) break; list.push(h); }
     for (const t of list) if (t) user32.ShowWindow(t, on ? 8 /* SW_SHOWNA */ : 0 /* SW_HIDE */);
@@ -463,5 +483,5 @@ module.exports = {
   keyCombo, focusWindow, minimizeWindow, closeWindow, lockWorkstation, foregroundHwnd, setToolWindow,
   appbarSet, appbarRemove, appbarRemoveAll, appbarRemoveHandle, holdRect, taskbarAutoHide, showTaskbars, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
   pin, sendToBottom, allowForeground, keyDown, moveTo, realBounds, placeNative, setCorners, watchWallpaper, readWallpaper, available: () => !!user32,
-  attachToWallpaper, refreshWallpaper, foregroundState, isWindowAlive, hwndOf, wallpaperFile,
+  attachToWallpaper, refreshWallpaper, foregroundState, menuOpen, isWindowAlive, hwndOf, wallpaperFile,
 };

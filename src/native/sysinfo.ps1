@@ -297,6 +297,9 @@ public static class TrayHost {
   [DllImport("user32.dll")] static extern bool DestroyWindow(IntPtr h);
   [DllImport("user32.dll")] static extern bool AllowSetForegroundWindow(uint pid);
   [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT p);
+  // This helper isn't DPI-aware, so GetCursorPos is scaled down on high-DPI screens; this one isn't.
+  [DllImport("user32.dll")] static extern bool GetPhysicalCursorPos(out POINT p);
+  [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr c);
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
 
   public class Icon { public long hwnd; public uint uid, callback, version, pid; public string tip = ""; public long hicon; public bool hidden; }
@@ -393,7 +396,12 @@ public static class TrayHost {
     Icon ic; lock (icons) { if (!icons.TryGetValue(id, out ic)) return false; }
     IntPtr hw = new IntPtr(ic.hwnd);
     AllowSetForegroundWindow(ic.pid);
-    POINT pt; GetCursorPos(out pt);
+    // Real screen pixels (this helper isn't DPI-aware, so it would otherwise get scaled coordinates and the
+    // app's menu would open off to the side). Per-monitor aware just for this read.
+    POINT pt; IntPtr old = IntPtr.Zero;
+    try { old = SetThreadDpiAwarenessContext(new IntPtr(-4)); } catch {}
+    if (!GetCursorPos(out pt)) GetPhysicalCursorPos(out pt);
+    if (old != IntPtr.Zero) { try { SetThreadDpiAwarenessContext(old); } catch {} }
     bool right = button == "right";
     uint down = right ? 0x0204u : 0x0201u, up = right ? 0x0205u : 0x0202u;
     // Like the real taskbar: the pointer moves over the icon first (some apps only react after that).

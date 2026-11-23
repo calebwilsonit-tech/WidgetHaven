@@ -175,10 +175,28 @@ function renderTray(list) {
   if (!box) return;
   list = (list || []).filter((t) => t.icon || t.tip);
   trayNames = new Set(list.map((t) => (t.name || '').toLowerCase()));
-  box.innerHTML = list.length ? list.map((t) => `<button class="ti" data-tray="${esc(t.id)}" data-pid="${t.pid}" title="${esc(t.tip || t.name)}">${t.icon ? `<img src="data:image/png;base64,${t.icon}" alt="">` : `<span class="bgl">${esc((t.tip || t.name || '?').charAt(0))}</span>`}</button>`).join('')
+  box.innerHTML = list.length ? list.map((t) => `<button class="ti" data-tray="${esc(t.id)}" data-pid="${t.pid}" data-owner="${esc((t.name || '').toLowerCase())}" title="${esc(t.tip || t.name)}">${t.icon ? `<img src="data:image/png;base64,${t.icon}" alt="">` : `<span class="bgl">${esc((t.tip || t.name || '?').charAt(0))}</span>`}</button>`).join('')
     : '<div class="muted small">No tray icons yet. Apps add theirs as they start.</div>';
   // Apps already shown as tray icons don't need repeating in the list below.
   $$('#bg .bgr').forEach((r) => { const n = (r.dataset.exe || '').toLowerCase(); if (n && trayNames.has(n)) r.remove(); });
+}
+// Windows' own tray icons (sound, network, battery, Bluetooth) only respond inside Windows itself. Left-click
+// opens the matching Haven panel; right-click shows the same menu the taskbar does. Returns true when handled.
+function windowsIcon(el, right) {
+  if (el.dataset.owner !== 'explorer') return false;
+  const tip = el.title || '';
+  const type = /speaker|headphone|volume|sound|audio|muted/i.test(tip) ? 'volume'
+    : /battery|charging|remaining|plugged/i.test(tip) ? 'battery'
+    : /internet|wi-?fi|network|ethernet|connected/i.test(tip) ? 'network'
+    : /bluetooth/i.test(tip) ? 'bluetooth'
+    : /safely remove|eject/i.test(tip) ? null : 'other';
+  if (!type) return false; // its own menu works
+  if (right || type === 'bluetooth') { api.flyoutDo('sysMenu', type); return true; } // Bluetooth's left-click is its menu too
+  if (type === 'other') { api.flyoutDo('quick'); return true; }
+  kind = type; render();
+  if (type === 'battery') { renderBattery(); loadBright('#brightSec'); }
+  if (type === 'network') open({ ...P, kind: 'network', state: ST });
+  return true;
 }
 function renderBg(list) {
   const box = $('#bg');
@@ -244,7 +262,7 @@ async function open(p) {
     }
   }
   if (kind === 'battery') { renderBattery(); loadBright('#brightSec'); }
-  if (kind === 'bgapps') { if (P.config.trayHost) api.flyoutAsk('tray').then(renderTray); else { const tb = $('#tray'); if (tb) tb.innerHTML = '<button class="btn" data-open="winTray">Open Windows hidden icons</button>'; } renderBg(await api.flyoutAsk('bgapps')); }
+  if (kind === 'bgapps') { if (P.config.trayIcons) api.flyoutAsk('tray').then(renderTray); else { const tb = $('#tray'); if (tb) tb.innerHTML = '<button class="btn" data-open="winTray">Open Windows hidden icons</button>'; } renderBg(await api.flyoutAsk('bgapps')); }
   if (kind === 'quick') loadBright('#briWrap');
   if (kind === 'system') {
     const t = await api.flyoutAsk('uptime'); const el = $('#up'); if (el) el.textContent = 'Up ' + Math.floor(t / 86400) + 'd ' + Math.floor((t % 86400) / 3600) + 'h';
@@ -296,13 +314,7 @@ panel.addEventListener('click', async (e) => {
   }
   if ((el = t('[data-wcon]'))) { el.textContent = 'Connecting…'; await api.flyoutDo('wifiConnect', el.dataset.wcon); setTimeout(() => open(P), 2500); return; }
   if ((el = t('[data-wdis]'))) { await api.flyoutDo('wifiDisconnect'); setTimeout(() => open(P), 1500); return; }
-  if ((el = t('[data-tray]'))) {
-    // Windows' own icons don't take app-style clicks: open the matching Haven panel or setting instead.
-    const tip = el.title || '';
-    if (/^(Speakers|Headphones|Volume)/i.test(tip)) { kind = 'volume'; render(); return; }
-    if (/^Bluetooth/i.test(tip)) return api.flyoutDo('open', 'ms-settings:bluetooth');
-    return api.flyoutDo('trayClick', { id: el.dataset.tray, button: 'left' });
-  }
+  if ((el = t('[data-tray]'))) { if (windowsIcon(el)) return; return api.flyoutDo('trayClick', { id: el.dataset.tray, button: 'left' }); }
   if ((el = t('[data-bgq]'))) {
     const row = el.closest('.bgr'), pid = el.dataset.bgq;
     if (el.dataset.force) { row.style.opacity = '.4'; await api.flyoutDo('bgForce', pid); row.classList.add('gone'); setTimeout(() => row.remove(), 260); return; }
@@ -344,6 +356,7 @@ panel.addEventListener('contextmenu', (e) => {
   const el = e.target.closest('[data-tray]');
   if (!el) return;
   e.preventDefault();
+  if (windowsIcon(el, true)) return;
   api.flyoutDo('trayClick', { id: el.dataset.tray, button: 'right', pid: +el.dataset.pid });
 });
 

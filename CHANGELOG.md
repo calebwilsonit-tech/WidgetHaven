@@ -3,6 +3,19 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.4.1] — 2026-11-23
+
+### Changed
+- **Real hidden icons are back in Haven's panel:** your actual tray icons (Steam, Bluetooth, USB eject, laptop utilities and so on) show in the bar's Hidden icons panel again, with left- and right-click working like on the taskbar. It no longer stops the bar from reserving its strip. Apps that don't have a tray icon are still listed below.
+- Windows' own icons behave like the taskbar's: right-click **sound**, **network**, **battery** or **Bluetooth** for the same menu Windows shows (volume mixer, sound settings, Bluetooth devices, send or receive a file and so on). Left-click sound, network or battery to open Haven's matching panel.
+
+### Fixed
+- An app's right-click menu (like Steam's) no longer closes after a second.
+- Haven's own menus open in front of the Hidden icons panel instead of behind it.
+- The panel closes when you click somewhere else after using an app's menu, and stays open when you click back into it.
+- Tray menus (like Safely Remove Hardware) open right at the pointer on screens with display scaling.
+- With the taskbar set to *Hidden*, Haven hid its own stand-in instead of the real taskbar, so the taskbar showed up.
+
 ## [1.4.0] — 2026-11-23
 
 ### Added

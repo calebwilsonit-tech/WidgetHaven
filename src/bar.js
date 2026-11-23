@@ -14,7 +14,7 @@ const DEFAULTS = {
   font: 'Space Grotesk', fontSize: 13,
   displays: 'primary',      // 'primary' | 'all'
   hideTaskbar: false,       // (old setting, replaced by taskbar)
-  trayHost: false,          // experimental: show real tray icons in the panel (breaks the bar's reserved strip for now)
+  trayIcons: true,           // show the real tray icons in the panel (Haven stands in front of the taskbar's tray)
   taskbar: 'show',          // Windows taskbar while the bar is on: 'show' | 'autohide' | 'hidden'
   look: 'solid',            // see LOOKS in bar.css
   upper: false, sep: '',
@@ -422,7 +422,7 @@ function setup(d) {
     for (const disp of targets()) create(disp);
     startHelper();
     // The tray stand-in only runs while the bar shows the background apps button.
-    if (c.trayHost && [...c.left, ...c.center, ...c.right].includes('bgapps')) tell('trayon'); // off by default: it interferes with the bar's reserved strip
+    if (c.trayIcons && [...c.left, ...c.center, ...c.right].includes('bgapps')) tell('trayon');
     sampleStats(); sampleWifi();
     clearInterval(statTimer); statTimer = setInterval(() => { sampleStats(); push(); }, 2000);
     clearInterval(netTimer); netTimer = setInterval(sampleWifi, 20000);
@@ -471,10 +471,15 @@ function setup(d) {
       const fg = desktop.foregroundState([]);
       const cls = fg && fg.cls;
       if (fg && fg.pid === process.pid) return endMenuMode(false);           // back in the panel
-      if (cls === '#32768' || (fg && fg.pid === pid) || Date.now() - t0 < 600) return; // the app's menu is up
-      // The menu closed. If you clicked back into the panel, keep it (and give it focus again); otherwise close it.
+      // A menu is up if any standard menu is showing, or the front window is a title-less pop-up (custom menus,
+      // which can belong to a helper process, like Steam's steamwebhelper, not the icon's own app).
+      const shell = ['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd'].includes(cls);
+      const isMenu = desktop.menuOpen() || cls === '#32768' || (fg && fg.popup && !shell);
+      if ((isMenu || Date.now() - t0 < 600) && Date.now() - t0 < 30000) return; // the app's menu is up
+      // The menu closed. Never pull focus back (that would close a menu we didn't recognise): with the pointer still
+      // over the panel, wait (clicking it gives it focus, which ends menu mode); anywhere else, close the panel.
       const c = screen.getCursorScreenPoint(), b = fly.getBounds();
-      if (c.x >= b.x && c.x < b.x + b.width && c.y >= b.y && c.y < b.y + b.height) { endMenuMode(false); fly.focus(); desktop.focusWindow(desktop.hwndOf(fly)); return; }
+      if (c.x >= b.x && c.x < b.x + b.width && c.y >= b.y && c.y < b.y + b.height && Date.now() - t0 < 30000) return;
       endMenuMode(true);
     }, 250) };
   }
@@ -565,6 +570,24 @@ function setup(d) {
         if (id) setTimeout(() => tell('trayclick ' + id + ' ' + btn), 120);
         return true;
       }
+      // Windows' own icons: the same right-click menus the taskbar shows.
+      case 'sysMenu': {
+        const run = (f) => () => { hideFly(); f(); };
+        const ms = (u) => run(() => shell.openExternal(u));
+        const exe = (f, a) => run(() => execFile(f, a || [], { windowsHide: false }, () => {}));
+        const menus = {
+          volume: [['Open volume mixer', ms('ms-settings:apps-volume')], ['Sound settings', ms('ms-settings:sound')], ['More sound settings', exe('control.exe', ['mmsys.cpl'])], null, ['Troubleshoot sound problems', ms('ms-settings:troubleshoot')]],
+          network: [['Diagnose network problems', ms('ms-settings:troubleshoot')], ['Network and Internet settings', ms('ms-settings:network')]],
+          battery: [['Power and battery settings', ms('ms-settings:powersleep')], ['Battery saver', ms('ms-settings:batterysaver')]],
+          bluetooth: [['Add a Bluetooth device', ms('ms-settings:bluetooth')], ['Show Bluetooth devices', ms('ms-settings:bluetooth')], null, ['Send a file', exe('fsquirt.exe', ['-send'])], ['Receive a file', exe('fsquirt.exe', ['-receive'])], null, ['Join a Personal Area Network', exe('control.exe', ['/name', 'Microsoft.DevicesAndPrinters'])], ['Open settings', ms('ms-settings:bluetooth')]],
+          other: [['Quick settings', run(() => desktop.keyCombo(WIN_KEYS.quick))], ['Taskbar settings', ms('ms-settings:taskbar')]],
+        };
+        const items = (menus[arg] || menus.other).map((m) => (m ? { label: m[0], click: m[1] } : { type: 'separator' }));
+        // The panel sits above normal always-on-top windows, which would put the menu behind it; lower it while open.
+        fly.setAlwaysOnTop(false);
+        Menu.buildFromTemplate(items).popup({ window: fly, callback: () => { if (fly && !fly.isDestroyed() && !menuMode) fly.setAlwaysOnTop(true, 'pop-up-menu'); } });
+        return true;
+      }
       case 'bgOpen': { const a = lastBg.get(+arg); if (!a) return false; hideFly(); desktop.allowForeground(); shell.openPath(a.path); return true; }
       case 'bgQuit': case 'bgForce': {
         const a = lastBg.get(+arg); if (!a) return false;
@@ -583,7 +606,7 @@ function setup(d) {
     S().bar = { ...prev, ...patch };
     save();
     if (!fromSync && d.onLook) d.onLook(patch);
-    if (cfg().trayHost && ['left', 'center', 'right'].some((z) => z in patch) && [...cfg().left, ...cfg().center, ...cfg().right].includes('bgapps')) tell('trayon');
+    if (cfg().trayIcons && ['left', 'center', 'right'].some((z) => z in patch) && [...cfg().left, ...cfg().center, ...cfg().right].includes('bgapps')) tell('trayon');
     if (GEOMETRY.some((k) => k in patch && patch[k] !== prev[k])) start();
     else { applyShortcuts(); applyTaskbar(); refresh(); }
     return cfg();
