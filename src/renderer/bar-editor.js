@@ -357,7 +357,7 @@
     const t = WM.tiler, l = WM.launcher;
     const sw = (on, id) => `<button class="switch ${on ? 'on' : ''}" id="${id}"></button>`;
     const segW = (id, val, opts) => `<div class="seg" id="${id}">${opts.map(([v, lb]) => `<button data-v="${v}" class="${String(val) === String(v) ? 'on' : ''}">${lb}</button>`).join('')}</div>`;
-    const keyRows = [['Ctrl+Alt+←↑↓→', 'Focus the window in that direction'], ['Ctrl+Alt+Shift+←↑↓→', 'Swap windows'], ['Drag a window onto another', 'Swap them'], ['Ctrl+Alt+F', 'Float / tile the active window'], ['Ctrl+Alt+L', 'Switch layout (dwindle / master)'], ['Ctrl+Alt+Q', 'Close the active window'], ['Ctrl+Alt+Enter', 'Open a terminal'], ['Ctrl+Alt+P', 'Pause / resume tiling'], ['Ctrl+Alt+1…9', 'Jump to a desktop (with the bar on)'], ['Maximize a window', 'It goes fullscreen; the rest stay tiled behind it']];
+    const keyRows = [['Ctrl+Alt+←↑↓→', 'Focus the window in that direction'], ['Ctrl+Alt+Shift+←↑↓→', 'Swap windows'], ['Drag a window onto another', 'Swap them'], ['Ctrl+Alt+F', 'Float / tile the active window'], ['Ctrl+Alt+L', 'Switch layout (dwindle / master)'], ['Ctrl+Alt+Q', 'Close the active window'], ['Ctrl+Alt+Enter', 'Open a terminal'], ['Ctrl+Alt+P', 'Pause / resume tiling'], ['Ctrl+Alt+Z', 'Focus: the active window fills the screen (again to undo)'], ['Ctrl+Alt+1…9', 'Jump to a desktop (with the bar on)'], ['Maximize a window', 'Same as focus mode: it fills the tiled area']];
     $('#wmMain').innerHTML = `
       <div class="live-head" style="margin-bottom:10px"><div><h2>Tiling windows <small class="beta">beta</small></h2><p class="muted">Haven arranges your app windows side by side with gaps, like Hyprland, and animates them into place. New windows split the space; close one and the rest fill in.</p></div>${sw(t.enabled, 'wmOn')}</div>
       <div class="sec-h"><h4>Presets</h4></div>
@@ -380,6 +380,10 @@
       <div class="group"><h5>Feel</h5>
         ${fld('Animations', segW('wmAnim', t.animate ? t.speed : 'off', [['smooth', 'Smooth'], ['fast', 'Fast'], ['off', 'Off']]))}
         ${fld('Active border', sw(t.border, 'wmBorder'), 'Colors the focused window\'s edge with your theme accent.')}
+      </div>
+      <div class="group"><h5>Always float</h5>
+        <input type="text" id="wmFloat" value="${esc(t.floatApps ?? 'steamwebhelper, Steam')}" spellcheck="false" style="width:100%">
+        <p class="hint">These open centered on top and the rest tile around them. Good for apps like Steam that won't shrink below their own minimum size. Haven also floats any window that refuses to fit its slot.</p>
       </div>
       <div class="group"><h5>Leave these alone</h5>
         <input type="text" id="wmIgnore" value="${esc(t.ignore)}" spellcheck="false" style="width:100%">
@@ -408,6 +412,7 @@
       r.addEventListener('change', () => setT({ [key]: +r.value }));
     }
     $('#wmIgnore').addEventListener('change', (e) => setT({ ignore: e.target.value }));
+    $('#wmFloat').addEventListener('change', (e) => setT({ floatApps: e.target.value }));
   }
 
   api.on('theme:changed', (l) => { TH = l; if (!$('#pThemes').hidden) renderThemes(); });

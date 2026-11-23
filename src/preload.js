@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('haven', {
   launcherHide: () => ipcRenderer.send('launcher:hide'),
   wmGet: invoke('wm:get'),
   wmSet: invoke('wm:set'),
+  wmFocus: invoke('wm:focus'),
   themeList: invoke('theme:list'),
   themeApply: invoke('theme:apply'),
   themeSave: invoke('theme:save'),

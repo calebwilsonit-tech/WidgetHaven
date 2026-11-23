@@ -544,6 +544,7 @@ function setup(d) {
       { label: 'Windows taskbar', submenu: [['show', 'Show it'], ['autohide', 'Auto-hide (shows at the screen edge)'], ['hidden', 'Hide it completely']].map(([v, l]) => ({ label: l, type: 'radio', checked: c.taskbar === v, click: () => set({ taskbar: v }) })) },
       { type: 'separator' },
       d.getTiler && d.getTiler() ? { label: 'Tile windows (beta)', type: 'checkbox', checked: !!d.getTiler().cfg().enabled, click: (m) => d.getTiler().set({ enabled: m.checked }) } : null,
+      d.getTiler && d.getTiler() && d.getTiler().cfg().enabled ? { label: 'Focus the active window   (Ctrl+Alt+Z)', type: 'checkbox', checked: d.getTiler().focused(), click: () => d.getTiler().toggleFocus() } : null,
       { label: 'Tiling settings…', click: () => openStudio('wm') },
       { type: 'separator' },
       { label: 'Turn off the bar   (Ctrl+Alt+B)', click: () => set({ enabled: false }) },

@@ -13,6 +13,7 @@ const DEFAULTS = {
   animate: true, speed: 'smooth', // 'fast' | 'smooth'
   border: true,           // accent border on the active window (Windows 11)
   ignore: 'Taskmgr.exe, Calculator, PowerToys',
+  floatApps: 'steamwebhelper, Steam', // open floating (centered); the rest tile around them
 };
 const SKIP_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd', '#32770', 'Windows.UI.Core.CoreWindow',
   'TopLevelWindowForOverflowXamlIsland', 'XamlExplorerHostIslandWindow', 'ApplicationManager_ImmersiveShellWindow', 'ForegroundStaging',
@@ -34,6 +35,7 @@ function setup({ store, save, palette, log }) {
       IsWindowVisible: u.func('bool __stdcall IsWindowVisible(intptr_t h)'),
       IsIconic: u.func('bool __stdcall IsIconic(intptr_t h)'),
       IsZoomed: u.func('bool __stdcall IsZoomed(intptr_t h)'),
+      ShowWindow: u.func('bool __stdcall ShowWindow(intptr_t h, int cmd)'),
       IsWindow: u.func('bool __stdcall IsWindow(intptr_t h)'),
       GetWindow: u.func('intptr_t __stdcall GetWindow(intptr_t h, uint32_t cmd)'),
       GetWindowLongPtrW: u.func('intptr_t __stdcall GetWindowLongPtrW(intptr_t h, int i)'),
@@ -84,8 +86,11 @@ function setup({ store, save, palette, log }) {
     exeCache.set(pid[0], exe);
     return { pid: pid[0], exe };
   }
-  const floating = new Set();     // windows you've floated
-  const ignored = () => S().ignore.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const floating = new Set();     // windows you've floated (or that float on their own)
+  const list = (s) => String(s || '').split(',').map((x) => x.trim().toLowerCase().replace(/\.exe$/, '')).filter(Boolean);
+  const ignored = () => list(S().ignore);
+  const matches = (exe, names) => exe && names.some((x) => exe.toLowerCase().startsWith(x));
+  const toCenter = [];             // newly seen "always float" windows, centered after the pass
 
   function tileable(h) {
     if (!k.IsWindowVisible(h) || k.IsIconic(h)) return false;
@@ -99,8 +104,8 @@ function setup({ store, save, palette, log }) {
     if (cloaked(h)) return false;                                                       // on another desktop
     const { pid, exe } = exeOf(h);
     if (pid === process.pid) return false;
-    const ig = ignored();
-    if (exe && ig.some((x) => exe.toLowerCase().startsWith(x.toLowerCase().replace(/\.exe$/, '')))) return false;
+    if (matches(exe, ignored())) return false;
+    if (matches(exe, list(S().floatApps))) { floating.add(h); toCenter.push(h); return false; }
     return true;
   }
 
@@ -146,11 +151,30 @@ function setup({ store, save, palette, log }) {
     try { k.EnumWindows(cb, 0); } finally { k.koffi.unregister(cb); }
     return list;
   }
+  // Focus mode (like Hyprland's fake fullscreen): one window fills the tiled area; the rest wait behind it.
+  let focusWin = 0, settled = false;
+  function centerFloat(h) {
+    const ds = displays();
+    const d = displayOf(h, ds), e = ext(h);
+    const w = Math.min(e.right - e.left, d.area.width - 40), hh = Math.min(e.bottom - e.top, d.area.height - 40);
+    // Placed directly (not animated) so it never interrupts the tiling animation running for the others.
+    const wr = rect(h), off = { l: e.left - wr.left, t: e.top - wr.top, r: wr.right - e.right, b: wr.bottom - e.bottom };
+    place([{ h, off, r: { x: d.area.x + Math.round((d.area.width - w) / 2), y: d.area.y + Math.round((d.area.height - hh) / 2), width: w, height: hh } }]);
+    try { k.DwmSetWindowAttribute(h, 34, [0xFFFFFFFF], 4); } catch {}
+  }
   function retile() {
     if (!k || !S().enabled || paused || dragging) return;
     const cfg = S();
     const ds = displays();
-    const wins = collect().filter((h) => !k.IsZoomed(h)); // a maximized window is "fullscreen"; tile the rest
+    toCenter.length = 0;
+    const wins = collect();
+    // Maximized windows join the layout. Maximizing one while tiling runs puts it in focus mode instead
+    // (it fills the tiled area, like Hyprland's fake fullscreen); Ctrl+Alt+Z brings the layout back.
+    const fg = Number(k.GetForegroundWindow());
+    for (const h of wins) if (k.IsZoomed(h)) { if (settled && h === fg) focusWin = h; k.ShowWindow(h, 9 /* SW_RESTORE */); }
+    settled = true;
+    for (const h of toCenter.splice(0)) centerFloat(h);
+    if (focusWin && !wins.includes(focusWin)) focusWin = 0;
     const byDisp = new Map(ds.map((d) => [d.id, []]));
     for (const h of wins) byDisp.get(displayOf(h, ds).id).push(h);
     const moves = [];
@@ -164,10 +188,12 @@ function setup({ store, save, palette, log }) {
       const g = Math.round(cfg.outer * d.scale), gi = Math.round(cfg.inner * d.scale);
       const area = { x: d.area.x + g, y: d.area.y + g, width: d.area.width - g * 2, height: d.area.height - g * 2 };
       split(area, prev.length, gi, cfg).forEach((r, i) => {
-        const to = { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) };
+        let to = { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) };
+        if (prev[i] === focusWin) to = { ...area };
         moves.push({ h: prev[i], to, fresh: !known.has(prev[i]) });
         tiledNow.add(prev[i]);
       });
+      if (focusWin && prev.includes(focusWin)) { try { k.SetWindowPos(focusWin, 0, 0, 0, 0, 0, 0x1 | 0x2 | 0x10); } catch {} }
     }
     for (const m of moves) known.add(m.h);
     animate(moves);
@@ -186,7 +212,18 @@ function setup({ store, save, palette, log }) {
     }
     if (hdwp) k.EndDeferWindowPos(hdwp);
   }
-  function animate(moves) {
+  // Some apps (Steam, for one) refuse to shrink below their own minimum size. If a window ends up bigger
+  // than its slot, float it centered and tile everything else around it, so nothing overlaps.
+  function checkFit(jobs) {
+    let changed = false;
+    for (const j of jobs) {
+      if (j.h === focusWin || floating.has(j.h) || !k.IsWindow(j.h)) continue;
+      const e = ext(j.h);
+      if (e.right - e.left > j.to.width + 12 || e.bottom - e.top > j.to.height + 12) { floating.add(j.h); centerFloat(j.h); changed = true; }
+    }
+    if (changed) setTimeout(retile, 30);
+  }
+  function animate(moves, noFit) {
     if (anim) { clearInterval(anim.timer); anim = null; }
     const jobs = [];
     for (const m of moves) {
@@ -202,12 +239,12 @@ function setup({ store, save, palette, log }) {
     if (!jobs.length) return;
     const cfg = S();
     const ms = !cfg.animate ? 0 : cfg.speed === 'fast' ? 120 : 200;
-    if (!ms) { place(jobs.map((j) => ({ h: j.h, r: j.to, off: j.off }))); return; }
+    if (!ms) { place(jobs.map((j) => ({ h: j.h, r: j.to, off: j.off }))); if (!noFit) setTimeout(() => checkFit(jobs), 150); return; }
     const t0 = Date.now();
     const step = () => {
       const t = Math.min(1, (Date.now() - t0) / ms), e = ease(t);
       place(jobs.map((j) => ({ h: j.h, off: j.off, r: { x: Math.round(j.from.x + (j.to.x - j.from.x) * e), y: Math.round(j.from.y + (j.to.y - j.from.y) * e), width: Math.round(j.from.width + (j.to.width - j.from.width) * e), height: Math.round(j.from.height + (j.to.height - j.from.height) * e) } })));
-      if (t >= 1 && anim) { clearInterval(anim.timer); anim = null; }
+      if (t >= 1 && anim) { clearInterval(anim.timer); anim = null; if (!noFit) setTimeout(() => checkFit(jobs), 150); }
     };
     anim = { timer: setInterval(step, 16) };
     step();
@@ -272,6 +309,7 @@ function setup({ store, save, palette, log }) {
     'Ctrl+Alt+Q': () => { const h = Number(k.GetForegroundWindow()); if (h) k.PostMessageW(h, 0x10, 0, 0); },
     'Ctrl+Alt+Enter': () => execFile('wt.exe', [], (err) => { if (err) execFile('cmd.exe', ['/c', 'start', 'cmd.exe']); }),
     'Ctrl+Alt+P': () => { paused = !paused; if (!paused) retile(); },
+    'Ctrl+Alt+Z': () => toggleFocus(),
   };
   let keysOn = false;
   function keys(on) {
@@ -308,6 +346,12 @@ function setup({ store, save, palette, log }) {
     }
     retile();
   }
+  function toggleFocus() {
+    const fg = Number(k.GetForegroundWindow());
+    focusWin = focusWin ? 0 : tiledNow.has(fg) ? fg : 0;
+    retile();
+    return !!focusWin;
+  }
   function toggleFloat() {
     const h = Number(k.GetForegroundWindow());
     if (!h) return;
@@ -328,7 +372,7 @@ function setup({ store, save, palette, log }) {
     const on = !!(k && S().enabled);
     hook(on);
     keys(on);
-    if (on) { paused = false; retile(); } else { tiledNow.clear(); borders(); order.clear(); known.clear(); floating.clear(); }
+    if (on) { paused = false; settled = false; retile(); } else { focusWin = 0; tiledNow.clear(); borders(); order.clear(); known.clear(); floating.clear(); }
   }
   function set(patch) {
     store.settings.tiler = { ...S(), ...patch };
@@ -340,7 +384,7 @@ function setup({ store, save, palette, log }) {
   screen.on('display-added', () => soon(500));
   screen.on('display-removed', () => soon(500));
 
-  return { apply, set, cfg: S, retile, available: () => !!k, stop: () => { hook(false); keys(false); tiledNow.clear(); borders(); }, KEYS: Object.keys(KEYS) };
+  return { apply, set, cfg: S, retile, available: () => !!k, toggleFocus, focused: () => !!focusWin, stop: () => { hook(false); keys(false); tiledNow.clear(); borders(); }, KEYS: Object.keys(KEYS) };
 }
 
 module.exports = { setup, DEFAULTS };

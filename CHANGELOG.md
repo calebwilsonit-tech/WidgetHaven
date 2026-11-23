@@ -3,6 +3,22 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.3.5] — 2026-11-22
+
+### Added
+- **Focus mode** for tiling (Ctrl+Alt+Z, or the bar or tray menu): the active window animates to fill the tiled area, like Hyprland's fake fullscreen. Press it again to put the layout back.
+- **Always float** list in Studio → Windows (starts with Steam). These apps open centered on top, and the rest tile around them.
+
+### Changed
+- Maximized windows now join the tiling layout. Maximizing a window while tiling is on puts it in focus mode instead.
+- Windows that refuse to shrink to their tile (apps with a minimum size, like Steam) are floated in the center automatically, and everything else re-tiles around them so nothing overlaps.
+
+## [1.3.4] — 2026-11-22
+
+### Fixed
+- The bar could end up 50px down, drawn over the top of your windows, because Windows moved it into the strip it had just reserved. The bar now stays on the screen edge, and it only makes room for the real Windows taskbar on that edge.
+- A reserved strip left behind after Haven was force-closed is now cleared the next time Haven starts.
+
 ## [1.3.4] — 2026-11-22
 
 ### Fixed

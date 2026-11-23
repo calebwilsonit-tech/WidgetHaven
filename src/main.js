@@ -789,6 +789,7 @@ function buildTray() {
     { label: 'Haven Studio…', click: () => studio.openEditor({ tab: 'widgets' }) },
     { label: 'Haven Bar   (Ctrl+Alt+B)', type: 'checkbox', checked: !!(store.settings.bar && store.settings.bar.enabled), click: (m) => bar.set({ enabled: m.checked }) },
     { label: 'Tile windows (beta)   Ctrl+Alt+P pauses', type: 'checkbox', checked: !!(tiler && tiler.cfg().enabled), click: (m) => tiler.set({ enabled: m.checked }) },
+    tiler && tiler.cfg().enabled ? { label: 'Focus mode   Ctrl+Alt+Z', type: 'checkbox', checked: tiler.focused(), click: () => tiler.toggleFocus() } : null,
     { label: 'App launcher (Win+S)', type: 'checkbox', checked: !!(launcher && launcher.cfg().enabled), click: (m) => launcher.set({ enabled: m.checked }) },
     { label: 'Theme', submenu: [...themes.all().map((t) => ({ label: t.name, type: 'radio', checked: t.id === themes.currentId(), click: () => themes.apply(t.id) })), { type: 'separator' }, { label: 'Themes…', click: () => studio.openEditor({ tab: 'themes' }) }] },
     { label: 'Live wallpaper', type: 'checkbox', checked: !!(store.settings.live && store.settings.live.enabled), click: (m) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: m.checked }; save(); live.update(); studio.notifyEditor(); } },
@@ -1085,6 +1086,7 @@ app.whenReady().then(async () => {
     items: () => publicItems().filter((it) => !it.hidden).map((it) => ({ id: it.id, name: it.name, type: it.type, launches: it.launches || 0, lastLaunched: it.lastLaunched || 0, icon: 'haven://icon/' + encodeURIComponent(it.id) + '?v=hd' })),
   });
   ipcMain.handle('wm:get', () => ({ tiler: tiler.cfg(), launcher: launcher.cfg(), keys: tiler.KEYS, available: tiler.available() }));
+  ipcMain.handle('wm:focus', () => tiler.toggleFocus());
   ipcMain.handle('wm:set', (_, which, patch) => (which === 'launcher' ? launcher.set(patch || {}) : tiler.set(patch || {})));
   studio.createAll();
   live.start();
