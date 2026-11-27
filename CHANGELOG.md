@@ -3,6 +3,17 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.7.0] — 2026-11-26
+
+### Added
+- **Custom lockscreen (optional):** turn it on or off anytime from the Haven tray menu, the HavenBar Power menu, or Studio → Lockscreen. Opens instantly across all monitors using your theme, blurred wallpaper or live wallpaper scene, choice of 4 clock styles, optional greeting/date, and Now Playing media controls.
+- **Flexible unlock methods:** unlock with any key or click, a custom PIN (hashed locally), or your Windows account password (verified via Win32, with a built-in password tester and a 1-click **Windows Lock** fallback button).
+- **Boot & stock lock screen options (Studio → Lockscreen):**
+  - **Disable stock lock:** toggles Windows' `NoLockScreen` policy (via UAC) and enables Haven's lockscreen; toggle off anytime to restore the stock Windows lock screen.
+  - **Fast boot start & Lock on startup:** registers a zero-delay Windows Logon task so Haven starts immediately at logon and opens its lockscreen before loading the rest of the app.
+  - **Stock Windows lock screen wallpaper sync:** automatically pushes your current wallpaper to Windows' native lock screen on theme or wallpaper changes (no admin needed).
+- **Triggers:** `Ctrl+Alt+Shift+L` hotkey, optional idle auto-lock (skips fullscreen games/videos), and optional timed handoff to Windows' secure lock screen.
+
 ## [1.6.0] — 2026-11-23
 
 ### Added

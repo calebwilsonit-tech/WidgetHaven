@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' haven: file: data:; font-src 'self' haven: data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Haven Lockscreen</title>
+  <link rel="stylesheet" href="fonts.css" />
+  <link rel="stylesheet" href="lockscreen.css" />
+</head>
+<body>
+  <div id="bgWrap" class="bg-wrap">
+    <div id="bgWall" class="bg-wall"></div>
+    <canvas id="bgCanvas" class="bg-canvas" hidden></canvas>
+    <div id="bgDim" class="bg-dim"></div>
+  </div>
+
+  <main id="shell" class="shell">
+    <section class="hero">
+      <div id="greeting" class="greeting"></div>
+      <div id="clock" class="clock">00:00</div>
+      <div id="date" class="date"></div>
+    </section>
+
+    <section id="mediaCard" class="media-card" hidden>
+      <div class="media-info">
+        <div id="mediaTitle" class="media-title"></div>
+        <div id="mediaArtist" class="media-artist"></div>
+      </div>
+      <div class="media-btns">
+        <button id="mPrev" class="mbtn" title="Previous" aria-label="Previous">
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button id="mPlay" class="mbtn main" title="Play / Pause" aria-label="Play or Pause">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button id="mNext" class="mbtn" title="Next" aria-label="Next">
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <section id="unlockArea" class="unlock-area">
+      <!-- Any key / click mode -->
+      <div id="uAny" class="u-any" hidden>
+        <span class="pulse-dot"></span>
+        <span>Click or press any key to unlock</span>
+      </div>
+
+      <!-- PIN or Windows Password mode -->
+      <form id="uForm" class="u-form" autocomplete="off" hidden>
+        <div class="u-user">
+          <div id="uAvatar" class="u-avatar">H</div>
+          <div class="u-meta">
+            <div id="uName" class="u-name"></div>
+            <div id="uHint" class="u-hint"></div>
+          </div>
+        </div>
+        <div class="u-input-row">
+          <input id="uInput" class="u-input" type="password" placeholder="Enter PIN" autocomplete="off" spellcheck="false" />
+          <button id="uSubmit" class="u-go" type="submit" aria-label="Unlock">
+            <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div id="uErr" class="u-err"></div>
+      </form>
+    </section>
+
+    <div id="corner" class="corner">
+      <button id="bWinLock" class="corner-btn" title="Hand off to the real Windows lock screen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+        </svg>
+        <span>Windows Lock</span>
+      </button>
+    </div>
+  </main>
+
+  <script src="scenes.js"></script>
+  <script src="lockscreen.js"></script>
+</body>
+</html>

@@ -434,13 +434,169 @@
     $('#wmFloat').addEventListener('change', (e) => setT({ floatApps: e.target.value }));
   }
 
+  // ---------------------------------------------------------------- Lockscreen tab
+  let LK = null;
+  async function showLock() { LK = await api.lockGet(); renderLock(); }
+  function renderLock() {
+    if (!LK) return;
+    const c = LK.config;
+    const sw = (on, id) => `<button class="switch ${on ? 'on' : ''}" id="${id}"></button>`;
+    const segL = (id, val, opts) => `<div class="seg" id="${id}">${opts.map(([v, lb]) => `<button data-v="${v}" class="${String(val) === String(v) ? 'on' : ''}">${lb}</button>`).join('')}</div>`;
+    const now = new Date();
+    const hh = c.clock24 ? String(now.getHours()).padStart(2, '0') : String(now.getHours() % 12 || 12);
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const dateStr = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    const wall = (ST && ST.wallpaperURL) || '';
+    const prevBg = c.bgMode === 'solid' || !wall ? '' : `background-image:url('${wall}')`;
+    const unlockBadge = c.unlockMode === 'pin'
+      ? (c.hasPin ? 'Enter PIN to unlock' : 'PIN not set yet (unlocks on click)')
+      : c.unlockMode === 'windows' ? 'Windows password to unlock' : 'Click or press any key to unlock';
+
+    $('#lockMain').innerHTML = `
+      <div class="lk-prev style-${esc(c.clockStyle)}" style="--lk-blur:${Math.round((c.blur ?? 14) * 0.45)}px;--lk-dim:${(c.dim ?? 35) / 100}">
+        <div class="lk-prev-bg" style="${prevBg}"></div>
+        <div class="lk-prev-dim"></div>
+        <div class="lk-prev-in">
+          ${c.showGreeting ? `<div class="lk-prev-greet">Welcome back, ${esc(LK.displayName || LK.username || 'User')}</div>` : ''}
+          <div class="lk-prev-clk">${hh}:${mm}</div>
+          ${c.showDate ? `<div class="lk-prev-date">${esc(dateStr)}</div>` : ''}
+          <div class="lk-prev-pill">${esc(unlockBadge)}</div>
+        </div>
+      </div>
+      <div class="live-head" style="margin:16px 0 8px">
+        <div>
+          <h2>Custom lockscreen</h2>
+          <p class="muted">${c.enabled ? 'On — HavenBar Power → Lock and Ctrl+Alt+Shift+L open Haven\'s lockscreen instantly.' : 'Off — Power → Lock uses the stock Windows lock screen.'}</p>
+        </div>
+        <div class="row" style="gap:10px">
+          <button class="btn" id="lkPreview" ${c.enabled ? '' : 'title="Preview Haven\'s lockscreen right now"'}>${c.enabled ? 'Lock now' : 'Preview'}</button>
+          ${sw(c.enabled, 'lkOn')}
+        </div>
+      </div>
+      <div class="group" style="border:0;padding-top:4px">
+        <h5>Unlock method</h5>
+        ${segL('lkUnlock', c.unlockMode, [['any', 'Any key / click'], ['pin', 'Custom PIN'], ['windows', 'Windows password']])}
+        ${c.unlockMode === 'pin' ? `
+          <div class="lk-auth">
+            <input type="password" id="lkPin" placeholder="${c.hasPin ? 'Enter new PIN to change…' : 'Choose a PIN (4+ chars)…'}" autocomplete="off" />
+            <button class="btn sm primary" id="lkPinSave">${c.hasPin ? 'Update PIN' : 'Save PIN'}</button>
+            ${c.hasPin ? '<button class="btn sm" id="lkPinClear">Clear</button>' : ''}
+          </div>
+          <p class="hint">${c.hasPin ? 'Your PIN is saved (hashed locally).' : 'Set a PIN above. Until a PIN is saved, clicking or pressing any key will unlock.'}</p>` : ''}
+        ${c.unlockMode === 'windows' ? `
+          <div class="lk-auth">
+            <input type="password" id="lkWinTest" placeholder="Test your Windows password…" autocomplete="off" />
+            <button class="btn sm" id="lkWinTestBtn">Test</button>
+          </div>
+          <p class="hint">${LK.winAuthAvailable
+            ? `Verifies against your Windows account (${esc(LK.username)}) via Win32 LogonUser. Test it above first — PIN-only Microsoft accounts may not accept a password here. A "Windows Lock" button is always shown on the lockscreen.`
+            : 'Windows password verification is only available on Windows.'}</p>` : ''}
+        ${c.unlockMode === 'any' ? '<p class="hint">Ambient / screensaver style: any key press or click unlocks immediately. Great for quick privacy and aesthetics.</p>' : ''}
+      </div>
+      <div class="group">
+        <h5>Boot &amp; stock Windows lock screen</h5>
+        <div class="f"><label>Disable stock lock</label><div class="row">${sw(!!LK.stockLockDisabled, 'lkNoStock')}<span class="muted" style="font-size:12px">${LK.stockLockDisabled ? 'Stock lock screen disabled (Haven active)' : 'Stock Windows lock screen active'}</span></div></div>
+        <p class="hint">Turns off Windows' stock lock screen curtain (<code>NoLockScreen</code> policy, asks for admin via UAC) and enables Haven's lockscreen. Toggle off anytime to restore the stock Windows lock screen.</p>
+        <div class="f" style="margin-top:8px"><label>Fast boot start</label><div class="row">${sw(c.fastBootStart, 'lkFastBoot')}<span class="muted" style="font-size:12px">Starts Haven immediately at logon (skips Windows' startup delay)</span></div></div>
+        <div class="f"><label>Lock on startup</label><div class="row">${sw(c.lockOnBoot, 'lkBootLock')}<span class="muted" style="font-size:12px">Opens Haven's lockscreen first thing before loading widgets and bar</span></div></div>
+        <p class="hint">Uses a zero-delay Windows Logon task so Haven is ready as early as Windows allows. For a seamless boot straight into Haven's lockscreen, pair with Windows auto-sign-in.</p>
+      </div>
+      <div class="group">
+        <h5>Stock Windows lock screen wallpaper</h5>
+        <div class="f"><label>Sync wallpaper</label><div class="row">${sw(c.syncWindowsLock, 'lkSync')}<button class="btn sm" id="lkSyncNow">Sync now</button></div></div>
+        <p class="hint">Automatically pushes your current wallpaper to Windows' real lock screen (works on cold boot and Win+L, no admin needed).${LK.lastSync ? ` Last sync: <b>${esc(LK.lastSync.message)}</b>.` : ''}</p>
+      </div>`;
+
+    $('#lockOpts').innerHTML = `
+      <div class="group"><h5>Look</h5>
+        ${fld('Clock style', segL('lkStyle', c.clockStyle, [['modern', 'Modern'], ['minimal', 'Minimal'], ['bold', 'Bold'], ['mono', 'Mono']]))}
+        ${fld('24-hour clock', sw(c.clock24, 'lk24'))}
+        ${fld('Show date', sw(c.showDate, 'lkDate'))}
+        ${fld('Show greeting', sw(c.showGreeting, 'lkGreet'))}
+        ${fld('Now playing', sw(c.showMedia, 'lkMedia'), 'Shows media playback controls when music or video is playing.')}
+      </div>
+      <div class="group"><h5>Backdrop</h5>
+        ${fld('Source', segL('lkBg', c.bgMode, [['theme', 'Match theme'], ['wallpaper', 'Wallpaper'], ['scene', 'Scene'], ['solid', 'Solid']]))}
+        ${fld('Blur', `<input type="range" id="lkBlur" min="0" max="32" value="${c.blur ?? 14}" style="--p:${((c.blur ?? 14) / 32) * 100}%"><span class="val">${c.blur ?? 14}px</span>`)}
+        ${fld('Dim', `<input type="range" id="lkDim" min="0" max="80" value="${c.dim ?? 35}" style="--p:${((c.dim ?? 35) / 80) * 100}%"><span class="val">${c.dim ?? 35}%</span>`)}
+      </div>
+      <div class="group"><h5>Triggers</h5>
+        ${fld('Hotkey', sw(c.hotkey, 'lkKey'), `Press <b>${esc(LK.hotkey || 'Ctrl+Alt+Shift+L')}</b> to lock anytime.`)}
+        ${fld('Idle auto-lock', `<select id="lkIdle">${[[0, 'Off'], [1, '1 minute'], [3, '3 minutes'], [5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes']].map(([v, lb]) => `<option value="${v}" ${Number(c.idleMinutes) === v ? 'selected' : ''}>${lb}</option>`).join('')}</select>`, 'Skips auto-lock while a fullscreen game or video is running.')}
+        ${fld('Windows lock after', `<select id="lkFb">${[[0, 'Never'], [5, '5 minutes'], [15, '15 minutes'], [30, '30 minutes']].map(([v, lb]) => `<option value="${v}" ${Number(c.fallbackWinLock) === v ? 'selected' : ''}>${lb}</option>`).join('')}</select>`, 'Optionally hands off to Windows\' secure lock screen after being locked for a while.')}
+      </div>
+      <div class="group"><p class="hint">Toggle this on or off anytime from the Haven tray menu, the HavenBar Power menu, or here. Because Haven stays preloaded in the background, the lockscreen opens instantly.</p></div>`;
+
+    const setLk = async (p) => { LK = await api.lockSet(p); renderLock(); };
+    $('#lkOn').onclick = () => setLk({ enabled: !c.enabled });
+    $('#lkPreview').onclick = () => api.lockNow();
+    $$('#lkUnlock button').forEach((b) => (b.onclick = () => setLk({ unlockMode: b.dataset.v })));
+    if ($('#lkPinSave')) {
+      $('#lkPinSave').onclick = async () => {
+        const val = ($('#lkPin').value || '').trim();
+        if (val.length < 4) return toast('PIN should be at least 4 characters');
+        LK = await api.lockSetPin(val);
+        renderLock();
+        toast('PIN saved');
+      };
+    }
+    if ($('#lkPinClear')) {
+      $('#lkPinClear').onclick = async () => { LK = await api.lockSetPin(''); renderLock(); toast('PIN cleared'); };
+    }
+    if ($('#lkWinTestBtn')) {
+      $('#lkWinTestBtn').onclick = async () => {
+        const ok = await api.lockTestWinPass($('#lkWinTest').value || '');
+        toast(ok ? 'Windows password verified!' : 'Password did not match');
+      };
+    }
+    $('#lkNoStock').onclick = async () => {
+      const want = !LK.stockLockDisabled;
+      toast(want ? 'Disabling stock Windows lock screen…' : 'Restoring stock Windows lock screen…');
+      const r = await api.lockSetStockLock(want);
+      LK = r;
+      renderLock();
+      if (r && r.result && r.result.message) toast(r.result.message);
+    };
+    $('#lkFastBoot').onclick = async () => {
+      const r = await api.lockSetFastBoot(!c.fastBootStart);
+      LK = r;
+      renderLock();
+      if (r && r.result && r.result.message) toast(r.result.message);
+    };
+    $('#lkBootLock').onclick = () => setLk({ lockOnBoot: !c.lockOnBoot });
+    $('#lkSync').onclick = () => setLk({ syncWindowsLock: !c.syncWindowsLock });
+    $('#lkSyncNow').onclick = async () => {
+      toast('Syncing Windows lock screen…');
+      const r = await api.lockSyncNow();
+      LK = await api.lockGet();
+      renderLock();
+      toast(r && r.message ? r.message : 'Done');
+    };
+    $$('#lkStyle button').forEach((b) => (b.onclick = () => setLk({ clockStyle: b.dataset.v })));
+    $('#lk24').onclick = () => setLk({ clock24: !c.clock24 });
+    $('#lkDate').onclick = () => setLk({ showDate: !c.showDate });
+    $('#lkGreet').onclick = () => setLk({ showGreeting: !c.showGreeting });
+    $('#lkMedia').onclick = () => setLk({ showMedia: !c.showMedia });
+    $$('#lkBg button').forEach((b) => (b.onclick = () => setLk({ bgMode: b.dataset.v })));
+    for (const [id, key, unit] of [['lkBlur', 'blur', 'px'], ['lkDim', 'dim', '%']]) {
+      const r = $('#' + id);
+      if (!r) continue;
+      r.addEventListener('input', () => { r.style.setProperty('--p', ((r.value - r.min) / (r.max - r.min)) * 100 + '%'); r.nextElementSibling.textContent = r.value + unit; });
+      r.addEventListener('change', () => setLk({ [key]: +r.value }));
+    }
+    $('#lkKey').onclick = () => setLk({ hotkey: !c.hotkey });
+    $('#lkIdle').addEventListener('change', (e) => setLk({ idleMinutes: +e.target.value }));
+    $('#lkFb').addEventListener('change', (e) => setLk({ fallbackWinLock: +e.target.value }));
+  }
+
   api.on('theme:changed', (l) => { TH = l; if (!$('#pThemes').hidden) renderThemes(); });
 
   window.BarEditor = {
-    show(tab) { return tab === 'bar' ? showBar() : tab === 'themes' ? showThemes() : tab === 'wm' ? showWm() : null; },
+    show(tab) { return tab === 'bar' ? showBar() : tab === 'themes' ? showThemes() : tab === 'wm' ? showWm() : tab === 'lock' ? showLock() : null; },
   };
   // studio-editor.js may have picked this tab before this script loaded.
   if (!document.getElementById('pBar').hidden) showBar();
   if (!document.getElementById('pThemes').hidden) showThemes();
   if (!document.getElementById('pWm').hidden) showWm();
+  if (!document.getElementById('pLock').hidden) showLock();
 })();

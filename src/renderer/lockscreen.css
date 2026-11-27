@@ -1,0 +1,388 @@
+:root {
+  --base: #11111b;
+  --surface: #232436;
+  --text: #f1f3fa;
+  --subtext: rgba(241, 243, 250, 0.72);
+  --accent: #8b5cf6;
+  --accent2: #22d3ee;
+  --red: #f38ba8;
+  --blur: 14px;
+  --dim: 0.35;
+}
+
+* { box-sizing: border-box; user-select: none; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--base);
+  color: var(--text);
+  font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+}
+
+.bg-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 28%, var(--base)), var(--base) 70%);
+}
+
+.bg-wall, .bg-canvas {
+  position: absolute;
+  inset: -28px;
+  width: calc(100% + 56px);
+  height: calc(100% + 56px);
+  background-size: cover;
+  background-position: center;
+  filter: blur(var(--blur));
+  transform: scale(1.02);
+  transition: filter 0.3s ease;
+}
+
+.bg-canvas {
+  display: block;
+}
+
+.bg-dim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(0, 0, 0, calc(var(--dim) * 0.55)), rgba(0, 0, 0, calc(var(--dim) + 0.16)) 85%);
+}
+
+.shell {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11vh 32px 7vh;
+  opacity: 0;
+  transform: scale(1.02);
+  transition: opacity 0.22s ease, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shell.in {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.shell.out {
+  opacity: 0;
+  transform: scale(0.985);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.hero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-shadow: 0 8px 34px rgba(0, 0, 0, 0.42);
+}
+
+.greeting {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--subtext);
+  margin-bottom: 4px;
+}
+
+.clock {
+  font-size: clamp(78px, 12vw, 152px);
+  font-weight: 600;
+  line-height: 0.96;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+body.style-minimal .clock {
+  font-weight: 200;
+  letter-spacing: 0.02em;
+}
+
+body.style-bold .clock {
+  font-family: 'Bebas Neue', 'Segoe UI Variable Display', sans-serif;
+  font-size: clamp(96px, 15vw, 196px);
+  letter-spacing: 0.04em;
+  font-weight: 400;
+}
+
+body.style-mono .clock {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(68px, 10vw, 134px);
+  letter-spacing: -0.04em;
+  font-weight: 500;
+}
+
+.date {
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 400;
+  color: var(--subtext);
+  letter-spacing: 0.01em;
+}
+
+/* Media card */
+.media-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--base) 56%, transparent);
+  backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+  max-width: min(440px, 86vw);
+}
+
+.media-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.media-title {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.media-artist {
+  font-size: 12px;
+  color: var(--subtext);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.media-btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mbtn {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.mbtn:hover { background: rgba(255, 255, 255, 0.14); }
+.mbtn:active { transform: scale(0.92); }
+.mbtn.main { background: color-mix(in srgb, var(--accent) 85%, white 10%); color: #0b0b12; }
+.mbtn.main:hover { filter: brightness(1.08); }
+.mbtn svg { width: 17px; height: 17px; fill: currentColor; }
+
+/* Unlock area */
+.unlock-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 112px;
+  justify-content: flex-end;
+}
+
+.u-any {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--base) 54%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.u-any:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--base) 68%, var(--accent) 18%);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.u-form {
+  width: min(330px, 88vw);
+  padding: 18px 20px 16px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--base) 62%, transparent);
+  backdrop-filter: blur(26px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.u-form.shake {
+  animation: shake 0.34s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  45% { transform: translateX(7px); }
+  70% { transform: translateX(-5px); }
+  88% { transform: translateX(3px); }
+}
+
+.u-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.u-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #0b0b12;
+  font-weight: 700;
+  font-size: 16px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.u-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.u-hint {
+  font-size: 12px;
+  color: var(--subtext);
+}
+
+.u-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.u-input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.32);
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.u-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.u-input::placeholder { color: rgba(255, 255, 255, 0.42); }
+
+.u-go {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 0;
+  background: var(--accent);
+  color: #0b0b12;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: filter 0.15s ease, transform 0.12s ease;
+}
+
+.u-go:hover { filter: brightness(1.08); }
+.u-go:active { transform: scale(0.94); }
+.u-go svg { width: 19px; height: 19px; }
+
+.u-err {
+  min-height: 16px;
+  font-size: 12px;
+  color: var(--red);
+  text-align: center;
+}
+
+/* Corner Windows Lock handoff */
+.corner {
+  position: fixed;
+  right: 22px;
+  bottom: 20px;
+  z-index: 2;
+}
+
+.corner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--base) 52%, transparent);
+  backdrop-filter: blur(16px);
+  color: var(--subtext);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.corner-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--base) 74%, transparent);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.corner-btn svg { width: 14px; height: 14px; }
+
+body.secondary .media-card,
+body.secondary .unlock-area,
+body.secondary .corner {
+  display: none !important;
+}
+
+body.secondary .shell {
+  justify-content: center;
+}
+
+[hidden] { display: none !important; }

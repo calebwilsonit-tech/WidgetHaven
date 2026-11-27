@@ -16,9 +16,10 @@ const barMod = require('./bar');
 const themesMod = require('./themes');
 const tilerMod = require('./tiler');
 const launcherMod = require('./launcher');
+const lockMod = require('./lockscreen');
 const updaterMod = require('./updater');
 let updater = null;
-let studio = null, live = null, bar = null, themes = null, tiler = null, launcher = null;
+let studio = null, live = null, bar = null, themes = null, tiler = null, launcher = null, lockscreen = null;
 let wallpaper = null;
 
 app.setAppUserModelId('app.haven.organizer');
@@ -80,6 +81,7 @@ const DEFAULT_SETTINGS = {
   widgetFont: null,        // font for widgets, set when widgets match the bar
   tiler: { ...tilerMod.DEFAULTS },
   launcher: { ...launcherMod.DEFAULTS },
+  lockscreen: { ...lockMod.DEFAULTS },
 };
 
 function loadStore() {
@@ -90,7 +92,7 @@ function loadStore() {
     favorites: s.favorites || [],   // ordered ids
     groups: s.groups || [],         // [{id,name,emoji,color,items:[ids]}]
     notes: s.notes || '',
-    settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}), sources: { ...DEFAULT_SETTINGS.sources, ...((s.settings || {}).sources || {}) }, snap: { ...snap.DEFAULTS, ...((s.settings || {}).snap || {}) }, live: { ...liveMod.DEFAULTS, ...((s.settings || {}).live || {}) }, bar: { ...barMod.DEFAULTS, ...((s.settings || {}).bar || {}) } },
+    settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}), sources: { ...DEFAULT_SETTINGS.sources, ...((s.settings || {}).sources || {}) }, snap: { ...snap.DEFAULTS, ...((s.settings || {}).snap || {}) }, live: { ...liveMod.DEFAULTS, ...((s.settings || {}).live || {}) }, bar: { ...barMod.DEFAULTS, ...((s.settings || {}).bar || {}) }, lockscreen: { ...lockMod.DEFAULTS, ...((s.settings || {}).lockscreen || {}) } },
     window: s.window || null,
     widgetWindow: s.widgetWindow || null,
     widgets: Array.isArray(s.widgets) ? s.widgets : [], // [{id, view, opacity, glass, tileSize, bounds}]
@@ -801,6 +803,8 @@ function buildTray() {
     tiler && tiler.movedAway() ? { label: 'Bring back windows Haven moved', click: () => tiler.bringBack() } : null,
     tiler && tiler.cfg().enabled ? { label: 'Focus mode   Ctrl+Alt+Z', type: 'checkbox', checked: tiler.focused(), click: () => tiler.toggleFocus() } : null,
     { label: 'App launcher (Win+S)', type: 'checkbox', checked: !!(launcher && launcher.cfg().enabled), click: (m) => launcher.set({ enabled: m.checked }) },
+    { label: 'Custom lockscreen', type: 'checkbox', checked: !!(lockscreen && lockscreen.cfg().enabled), click: (m) => lockscreen.set({ enabled: m.checked }) },
+    lockscreen && lockscreen.cfg().enabled ? { label: 'Lock now   Ctrl+Alt+Shift+L', click: () => lockscreen.lock() } : null,
     { label: 'Theme', submenu: [...themes.all().map((t) => ({ label: t.name, type: 'radio', checked: t.id === themes.currentId(), click: () => themes.apply(t.id) })), { type: 'separator' }, { label: 'Themes…', click: () => studio.openEditor({ tab: 'themes' }) }] },
     { label: 'Live wallpaper', type: 'checkbox', checked: !!(store.settings.live && store.settings.live.enabled), click: (m) => { store.settings.live = { ...liveMod.DEFAULTS, ...store.settings.live, enabled: m.checked }; save(); live.update(); studio.notifyEditor(); } },
     studio.hasClickThrough() ? { label: 'Make floating widgets clickable again', click: () => studio.stopClickThrough() } : null,
@@ -1059,24 +1063,36 @@ ipcMain.on('win:quit', () => { quitting = true; app.quit(); });
 
 // ---------------------------------------------------------------- lifecycle
 app.on('second-instance', () => toggleWindow(true));
-app.on('before-quit', () => { quitting = true; if (live) live.stop(); if (bar) bar.stop(); if (tiler) tiler.stop(); if (launcher) launcher.stop(); saveNow(); });
+app.on('before-quit', () => { quitting = true; if (live) live.stop(); if (bar) bar.stop(); if (tiler) tiler.stop(); if (launcher) launcher.stop(); if (lockscreen) lockscreen.stop(); saveNow(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => {});
 
 app.whenReady().then(async () => {
   registerProtocol();
-  wallpaper = desktop.watchWallpaper((p) => { wallpaper = p; send('theme:wallpaper', themes.themedWallpaper()); if (live) live.update(); if (studio) studio.notifyEditor(); if (bar) bar.refresh(); });
+  wallpaper = desktop.watchWallpaper((p) => { wallpaper = p; send('theme:wallpaper', themes.themedWallpaper()); if (live) live.update(); if (studio) studio.notifyEditor(); if (bar) bar.refresh(); if (lockscreen) lockscreen.onWallpaperOrThemeChange(); });
   themes = themesMod.setup({ store, save, desktop, getWallpaper: () => wallpaper, dataDir: DATA_DIR, onApplied: themeApplied, log: console.warn });
   live = liveMod.setup({ getSettings: () => store.settings, getWallpaper: () => themes.themedWallpaper(), desktop, webPrefs: WEB_PREFS, dataDir: DATA_DIR, log: console.warn });
   studio = studioMod.setup({
     store, save, desktop, webPrefs: WEB_PREFS, makeLogo, dataDir: DATA_DIR, getWallpaper: () => themes.themedWallpaper(), live, withDialog,
     isDragging: (w) => dragging.has(w.id), isQuitting: () => quitting,
   });
+  lockscreen = lockMod.setup({
+    store, save, desktop, webPrefs: WEB_PREFS, makeLogo, dataDir: DATA_DIR, log: console.warn,
+    palette: () => themes.palette(),
+    getWallpaperURL: () => studio.wallpaperURL(),
+    getLive: () => ({ ...liveMod.DEFAULTS, ...(store.settings.live || {}) }),
+    getMedia: () => (bar && bar.statePayload ? bar.statePayload().media : null),
+    sendMedia: (cmd) => bar && bar.mediaControl && bar.mediaControl(cmd),
+    getDisplayName: () => store.settings.displayName,
+  });
+  // Fast-path: when launched at boot with --lock, cover the screen immediately before loading widgets/bar/scanner.
+  if (process.argv.includes('--lock') && lockscreen.cfg().enabled) lockscreen.lock();
   bar = barMod.setup({
     store, save, desktop, webPrefs: WEB_PREFS, makeLogo, themes, log: console.warn,
     wallpaperURL: () => studio.wallpaperURL(), customFonts: () => studio.fontsList(),
     launchItem: (id) => launch(id), toggleHub: () => toggleWindow(), openStudio: (tab) => studio.openEditor({ tab }),
     getTiler: () => tiler,
+    getLock: () => lockscreen,
     onLook: (patch) => {
       if (store.settings.lookSync === 'widgets' && LOOK_FROM_BAR.some((k) => k in patch)) syncLooks();
       if (tiler && (store.settings.tiler || {}).corners === 'bar' && ('radius' in patch || 'style' in patch)) tiler.applyCorners();
@@ -1113,10 +1129,11 @@ app.whenReady().then(async () => {
   bar.start();
   tiler.apply();
   launcher.apply();
+  lockscreen.apply();
   updater = updaterMod.setup({
     store, save, makeLogo, log: console.warn,
     onState: (st) => { send('update:state', st); },
-    beforeInstall: () => { quitting = true; if (bar) bar.stop(); if (live) live.stop(); if (tiler) tiler.stop(); saveNow(); },
+    beforeInstall: () => { quitting = true; if (bar) bar.stop(); if (live) live.stop(); if (tiler) tiler.stop(); if (lockscreen) lockscreen.stop(); saveNow(); },
   });
   ensureOverlay(); // preload the guide layer so the first drag draws instantly
   buildTray();
@@ -1221,5 +1238,6 @@ function themeApplied(prev) {
   if (live) live.update();
   if (bar) bar.refresh();
   if (tiler) tiler.retile();
+  if (lockscreen) lockscreen.onWallpaperOrThemeChange();
   send('theme:changed', themes.list());
 }

@@ -107,8 +107,20 @@ const R = {
       ${links([['All settings', 'ms-settings:'], ['Bar settings', 'barSettings'], ['Windows quick settings', 'winQuick']])}`;
   },
   power() {
+    const lk = !!P.lockOn;
     const b = (id, icon, label) => `<button data-pw="${id}" class="${armed === id ? 'arm' : ''}">${icon}<span>${armed === id ? 'Click again to ' + label.toLowerCase() : label}</span></button>`;
-    return `<div class="pw">${b('lock', icx('lock'), 'Lock')}${b('sleep', icx('moon'), 'Sleep')}${b('signout', icx('out'), 'Sign out')}${b('restart', icx('restart'), 'Restart')}${b('shutdown', ic('power'), 'Shut down')}</div>`;
+    return `<div class="pw">
+      ${b('lock', icx('lock'), lk ? 'Lock (Haven)' : 'Lock')}
+      ${lk ? b('winLock', icx('lock'), 'Windows lock') : ''}
+      ${b('sleep', icx('moon'), 'Sleep')}
+      ${b('signout', icx('out'), 'Sign out')}
+      ${b('restart', icx('restart'), 'Restart')}
+      ${b('shutdown', ic('power'), 'Shut down')}
+    </div>
+    <div class="sec pw-lk">
+      <button class="pw-tog ${lk ? 'on' : ''}" data-locktog="1"><span>Custom lockscreen</span><i class="pill">${lk ? 'On' : 'Off'}</i></button>
+    </div>
+    ${links([['Lockscreen settings', 'lockSettings']])}`;
   },
   system() {
     return `<div class="hd"><h3>System</h3><span class="grow"></span><span class="muted small" id="up"></span></div><div id="meters"></div>
@@ -330,8 +342,13 @@ panel.addEventListener('click', async (e) => {
   if ((el = t('[data-theme]'))) { await api.barAction('theme', el.dataset.theme); return; }
   if ((el = t('[data-pw]'))) {
     const id = el.dataset.pw;
-    if (id === 'lock' || id === 'sleep' || armed === id) return api.flyoutDo('powerNow', id);
+    if (id === 'lock' || id === 'winLock' || id === 'sleep' || armed === id) return api.flyoutDo('powerNow', id);
     armed = id; render(); return;
+  }
+  if ((el = t('[data-locktog]'))) {
+    P.lockOn = await api.flyoutDo('lockToggle', !P.lockOn);
+    render();
+    return;
   }
   if ((el = t('[data-q]'))) {
     const q = el.dataset.q, c = P.config;
@@ -344,6 +361,7 @@ panel.addEventListener('click', async (e) => {
     const u = el.dataset.open;
     if (u === 'notifyPanel') { kind = 'notify'; render(); renderNotes(await api.flyoutAsk('notes')); return; }
     if (u === 'barSettings') return api.flyoutDo('settings');
+    if (u === 'lockSettings') return api.flyoutDo('lockSettings');
     if (u === 'themesTab') return api.flyoutDo('themes');
     if (u === 'winQuick') return api.flyoutDo('quick');
     if (u === 'winTray') return api.flyoutDo('tray');

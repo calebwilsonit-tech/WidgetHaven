@@ -76,6 +76,19 @@ contextBridge.exposeInMainWorld('haven', {
   wmSet: invoke('wm:set'),
   wmFocus: invoke('wm:focus'),
   wmBringBack: invoke('wm:bringBack'),
+  // Haven Lockscreen
+  lockGet: invoke('lock:get'),
+  lockSet: invoke('lock:set'),
+  lockSetPin: invoke('lock:setPin'),
+  lockTestWinPass: invoke('lock:testWinPass'),
+  lockNow: invoke('lock:now'),
+  lockVerify: invoke('lock:verify'),
+  lockWinLock: invoke('lock:winLock'),
+  lockFocusPrimary: invoke('lock:focusPrimary'),
+  lockMedia: invoke('lock:media'),
+  lockSyncNow: invoke('lock:syncNow'),
+  lockSetFastBoot: invoke('lock:setFastBoot'),
+  lockSetStockLock: invoke('lock:setStockLock'),
   updateGet: invoke('update:get'),
   updateCheck: invoke('update:check'),
   updateInstall: invoke('update:install'),
@@ -95,7 +108,7 @@ contextBridge.exposeInMainWorld('haven', {
   hide: () => ipcRenderer.send('win:hide'),
   quit: () => ipcRenderer.send('win:quit'),
   on: (ch, fn) => {
-    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw', 'studio:design', 'studio:state', 'studio:select', 'live:config', 'live:pause', 'bar:config', 'bar:state', 'theme:changed', 'flyout:open', 'flyout:close', 'launcher:open', 'launcher:close', 'update:state'];
+    const allowed = ['lib:changed', 'icons:updated', 'scan:state', 'focus-search', 'open-settings', 'win:maximized', 'theme:wallpaper', 'notes:changed', 'overlay:draw', 'studio:design', 'studio:state', 'studio:select', 'live:config', 'live:pause', 'bar:config', 'bar:state', 'theme:changed', 'flyout:open', 'flyout:close', 'launcher:open', 'launcher:close', 'update:state', 'lock:open', 'lock:close', 'lock:media'];
     if (!allowed.includes(ch)) return;
     ipcRenderer.on(ch, (_, data) => fn(data));
   },

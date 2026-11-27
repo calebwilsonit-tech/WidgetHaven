@@ -362,7 +362,12 @@ function setup(d) {
     }
   }
   async function power(what, sender) {
-    if (what === 'lock') return desktop.lockWorkstation();
+    if (what === 'lock') {
+      const lk = d.getLock && d.getLock();
+      if (lk && lk.cfg().enabled) return lk.lock();
+      return desktop.lockWorkstation();
+    }
+    if (what === 'winLock') return desktop.lockWorkstation();
     if (what === 'sleep') return execFile('powershell.exe', ['-NoProfile', '-Command', 'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState("Suspend", $false, $false)'], { windowsHide: true });
     const words = { restart: ['Restart', '/r'], shutdown: ['Shut down', '/s'], signout: ['Sign out', '/l'] }[what];
     if (!words) return;
@@ -511,7 +516,7 @@ function setup(d) {
     flyAnchor = { cx: wb.x + rect.x + rect.width / 2, top: c.position !== 'bottom', y: c.position === 'bottom' ? wb.y - 4 : wb.y + wb.height + 4, display: screen.getDisplayMatching(wb) };
     flyKind = kind;
     const f = ensureFly();
-    const send = () => f.webContents.send('flyout:open', { kind, ...configPayload(null), state: statePayload(), live: !!(S().live && S().live.enabled) });
+    const send = () => f.webContents.send('flyout:open', { kind, ...configPayload(null), state: statePayload(), live: !!(S().live && S().live.enabled), lockOn: !!(S().lockscreen && S().lockscreen.enabled) });
     if (f.webContents.isLoading()) f.webContents.once('did-finish-load', send); else send();
   }
   function placeFly(h) {
@@ -559,11 +564,17 @@ function setup(d) {
       }
       case 'powerNow': {
         hideFly();
-        if (arg === 'lock' || arg === 'sleep') return power(arg);
+        if (arg === 'lock' || arg === 'winLock' || arg === 'sleep') return power(arg);
         const flag = { restart: ['/r', '/t', '0'], shutdown: ['/s', '/t', '0'], signout: ['/l'] }[arg];
         if (flag) execFile('shutdown.exe', flag, { windowsHide: true });
         return;
       }
+      case 'lockToggle': {
+        const lk = d.getLock && d.getLock();
+        if (lk) lk.set({ enabled: !!arg });
+        return !!(S().lockscreen && S().lockscreen.enabled);
+      }
+      case 'lockSettings': hideFly(); return openStudio('lock');
       case 'live': return d.setLive && d.setLive(!!arg);
       // Background apps: open (most tray apps show their window when started again), quit, or force quit.
       case 'trayClick': {
@@ -665,7 +676,19 @@ function setup(d) {
       if (t) tpl.unshift({ label: t.t.length > 50 ? t.t.slice(0, 48) + '…' : t.t, enabled: false }, { label: 'Minimize', click: () => desktop.minimizeWindow(t.h) }, { label: 'Close window', click: () => desktop.closeWindow(t.h) }, { type: 'separator' });
     }
     if (where && where.power) {
-      return Menu.buildFromTemplate([['lock', 'Lock'], ['sleep', 'Sleep'], ['signout', 'Sign out…'], ['restart', 'Restart…'], ['shutdown', 'Shut down…']].map(([v, l]) => ({ label: l, click: () => power(v) }))).popup({ window: BrowserWindow.fromWebContents(e.sender) });
+      const lk = d.getLock && d.getLock();
+      const lkOn = !!(lk && lk.cfg().enabled);
+      return Menu.buildFromTemplate([
+        { label: lkOn ? 'Lock (Haven)' : 'Lock', click: () => power('lock') },
+        lkOn ? { label: 'Windows lock', click: () => power('winLock') } : null,
+        { label: 'Sleep', click: () => power('sleep') },
+        { label: 'Sign out…', click: () => power('signout') },
+        { label: 'Restart…', click: () => power('restart') },
+        { label: 'Shut down…', click: () => power('shutdown') },
+        { type: 'separator' },
+        { label: 'Custom lockscreen', type: 'checkbox', checked: lkOn, click: (m) => lk && lk.set({ enabled: m.checked }) },
+        { label: 'Lockscreen settings…', click: () => openStudio('lock') },
+      ].filter(Boolean)).popup({ window: BrowserWindow.fromWebContents(e.sender) });
     }
     Menu.buildFromTemplate(tpl.filter(Boolean)).popup({ window: BrowserWindow.fromWebContents(e.sender) });
   });
@@ -677,7 +700,8 @@ function setup(d) {
     if (changed.includes('scaleFactor') || changed.includes('bounds')) setTimeout(start, 600);
   });
 
-  return { start, stop, set, refresh, cfg, status, DEFAULTS, MODULES, wins, statePayload, relDesktop, switchDesktop, vdMove, vdClean, vdHome };
+  const mediaControl = (cmd) => tell('media ' + (['toggle', 'next', 'prev'].includes(cmd) ? cmd : 'toggle'));
+  return { start, stop, set, refresh, cfg, status, DEFAULTS, MODULES, wins, statePayload, relDesktop, switchDesktop, vdMove, vdClean, vdHome, mediaControl };
 }
 
 module.exports = { setup, DEFAULTS, MODULES };
