@@ -80,7 +80,7 @@ function verifyPin(pin, cfg) {
   } catch { return false; }
 }
 
-function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, getWallpaperURL, getLive, getMedia, sendMedia, getDisplayName, log }) {
+function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, getWallpaperURL, getLive, getMedia, sendMedia, getDisplayName, onUnlock, log }) {
   const S = () => ({ ...DEFAULTS, ...(store.settings.lockscreen || {}) });
   const safeCfg = () => {
     const { pinHash, pinSalt, ...rest } = S();
@@ -90,6 +90,7 @@ function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, get
   let primaryWin = null;
   let coverWins = [];
   let locked = false;
+  let lockedAt = 0;
   let focusGuard = null;
   let mediaTimer = null;
   let fallbackTimer = null;
@@ -117,11 +118,12 @@ function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, get
       x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
       frame: false, show: false, backgroundColor: '#09090e',
       skipTaskbar: true, resizable: false, movable: false, minimizable: false, maximizable: false,
-      alwaysOnTop: true, fullscreen: false, kiosk: false,
+      fullscreenable: false, alwaysOnTop: true,
       title: 'Haven Lockscreen', icon: makeLogo(64),
       webPreferences: { ...webPrefs, backgroundThrottling: false },
     });
     primaryWin.setMenuBarVisibility(false);
+    try { desktop.setToolWindow(primaryWin); } catch {}
     blockShortcuts(primaryWin);
     primaryWin.on('close', (e) => {
       if (locked) e.preventDefault();
@@ -149,7 +151,7 @@ function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, get
 
   function destroyCovers() {
     for (const w of coverWins) {
-      try { if (w && !w.isDestroyed()) { w.setKiosk(false); w.destroy(); } } catch {}
+      try { if (w && !w.isDestroyed()) w.destroy(); } catch {}
     }
     coverWins = [];
   }
@@ -157,6 +159,7 @@ function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, get
   function lock() {
     if (locked) return true;
     locked = true;
+    lockedAt = Date.now();
     const primary = screen.getPrimaryDisplay();
     const w = ensurePrimary();
     w.setBounds(primary.bounds);
@@ -166,12 +169,11 @@ function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, get
     else pushOpen();
 
     w.setAlwaysOnTop(true, 'screen-saver');
-    w.setKiosk(true);
     w.show();
     w.focus();
     try { desktop.focusWindow(desktop.hwndOf(w)); } catch {}
 
-    // Cover any secondary monitors with matching backdrops
+    // Cover any secondary monitors with matching frameless backdrops (no kiosk/fullscreen to avoid breaking AppBars)
     destroyCovers();
     for (const d of screen.getAllDisplays()) {
       if (d.id === primary.id) continue;
@@ -179,11 +181,12 @@ function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, get
         x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
         frame: false, show: false, backgroundColor: '#09090e',
         skipTaskbar: true, resizable: false, movable: false, minimizable: false, maximizable: false,
-        alwaysOnTop: true, fullscreen: true,
+        fullscreenable: false, alwaysOnTop: true,
         title: 'Haven Lockscreen', icon: makeLogo(64),
         webPreferences: { ...webPrefs, backgroundThrottling: false },
       });
       cw.setMenuBarVisibility(false);
+      try { desktop.setToolWindow(cw); } catch {}
       blockShortcuts(cw);
       cw.on('close', (e) => { if (locked) e.preventDefault(); });
       const secPayload = buildPayload(true);
@@ -232,18 +235,21 @@ function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, get
     clearInterval(mediaTimer); mediaTimer = null;
     clearTimeout(fallbackTimer); fallbackTimer = null;
     destroyCovers();
-    if (primaryWin && !primaryWin.isDestroyed()) {
-      const finish = () => {
-        if (!primaryWin || primaryWin.isDestroyed() || locked) return;
-        try { primaryWin.setKiosk(false); } catch {}
+    const finish = () => {
+      if (primaryWin && !primaryWin.isDestroyed() && !locked) {
         primaryWin.hide();
-      };
+      }
+      if (onUnlock) setTimeout(() => onUnlock(), 40);
+    };
+    if (primaryWin && !primaryWin.isDestroyed()) {
       if (immediate) {
         finish();
       } else {
         try { primaryWin.webContents.send('lock:close'); } catch {}
         setTimeout(finish, 180);
       }
+    } else if (onUnlock) {
+      setTimeout(() => onUnlock(), 40);
     }
   }
 
@@ -478,6 +484,7 @@ function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, get
   ipcMain.handle('lock:verify', (_, secret) => {
     const c = S();
     const mode = (c.unlockMode === 'pin' && !(c.pinHash && c.pinSalt)) ? 'any' : c.unlockMode;
+    if (mode === 'any' && Date.now() - lockedAt < 500) return { ok: false, ignored: true };
     let ok = false;
     if (mode === 'any') ok = true;
     else if (mode === 'pin') ok = verifyPin(secret, c);
@@ -507,7 +514,7 @@ function setup({ store, save, desktop, webPrefs, makeLogo, dataDir, palette, get
     if (hotkeyOn) { try { globalShortcut.unregister(HOTKEY); } catch {} hotkeyOn = false; }
     locked = false;
     destroyCovers();
-    if (primaryWin && !primaryWin.isDestroyed()) { try { primaryWin.setKiosk(false); primaryWin.destroy(); } catch {} primaryWin = null; }
+    if (primaryWin && !primaryWin.isDestroyed()) { try { primaryWin.destroy(); } catch {} primaryWin = null; }
   }
 
   return { apply, set, cfg: safeCfg, lock, unlock, winLock, isLocked: () => locked, syncWindowsLockWallpaper, onWallpaperOrThemeChange, stop, HOTKEY };

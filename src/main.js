@@ -1084,6 +1084,7 @@ app.whenReady().then(async () => {
     getMedia: () => (bar && bar.statePayload ? bar.statePayload().media : null),
     sendMedia: (cmd) => bar && bar.mediaControl && bar.mediaControl(cmd),
     getDisplayName: () => store.settings.displayName,
+    onUnlock: () => bar && bar.restoreTop && bar.restoreTop(),
   });
   // Fast-path: when launched at boot with --lock, cover the screen immediately before loading widgets/bar/scanner.
   if (process.argv.includes('--lock') && lockscreen.cfg().enabled) lockscreen.lock();
@@ -1133,7 +1134,7 @@ app.whenReady().then(async () => {
   updater = updaterMod.setup({
     store, save, makeLogo, log: console.warn,
     onState: (st) => { send('update:state', st); },
-    beforeInstall: () => { quitting = true; if (bar) bar.stop(); if (live) live.stop(); if (tiler) tiler.stop(); if (lockscreen) lockscreen.stop(); saveNow(); },
+    beforeInstall: () => { quitting = true; if (bar) bar.stop(); if (live) live.stop(); if (tiler) tiler.stop(); if (launcher) launcher.stop(); if (lockscreen) lockscreen.stop(); if (tray) { try { tray.destroy(); } catch {} tray = null; } saveNow(); },
   });
   ensureOverlay(); // preload the guide layer so the first drag draws instantly
   buildTray();

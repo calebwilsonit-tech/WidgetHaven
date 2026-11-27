@@ -7,6 +7,7 @@ let clockTimer = null;
 let sceneEngine = null;
 let busy = false;
 let isOpen = false;
+let armedAt = 0;
 const isSecondary = new URLSearchParams(location.search).get('secondary') === '1';
 
 if (isSecondary) document.body.classList.add('secondary');
@@ -113,6 +114,7 @@ function openLock(d) {
   data = d;
   isOpen = true;
   busy = false;
+  armedAt = Date.now() + 500;
   applyPalette(d.palette);
   document.body.classList.remove('style-modern', 'style-minimal', 'style-bold', 'style-mono');
   document.body.classList.add('style-' + ((d.config && d.config.clockStyle) || 'modern'));
@@ -173,6 +175,7 @@ async function tryUnlock(secret) {
   busy = true;
   const res = await api.lockVerify(secret || '');
   busy = false;
+  if (res && res.ignored) return;
   if (!res || !res.ok) {
     const form = $('#uForm');
     const mode = data && data.config && data.config.unlockMode;
@@ -190,18 +193,22 @@ $('#uForm').addEventListener('submit', (e) => {
   tryUnlock($('#uInput').value);
 });
 
-$('#uAny').addEventListener('click', () => tryUnlock(''));
+$('#uAny').addEventListener('click', () => {
+  if (Date.now() < armedAt) return;
+  tryUnlock('');
+});
 
 document.addEventListener('click', (e) => {
   if (!isOpen) return;
   if (e.target.closest('button, input, form, .media-card')) return;
   if (isSecondary) {
-    if (data && data.config && data.config.unlockMode === 'any') tryUnlock('');
-    else api.lockFocusPrimary();
+    if (data && data.config && data.config.unlockMode === 'any') {
+      if (Date.now() >= armedAt) tryUnlock('');
+    } else api.lockFocusPrimary();
     return;
   }
   if (data && data.config && data.config.unlockMode === 'any') {
-    tryUnlock('');
+    if (Date.now() >= armedAt) tryUnlock('');
   } else {
     $('#uInput').focus();
   }
@@ -210,12 +217,14 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (!isOpen) return;
   if (isSecondary) {
-    if (data && data.config && data.config.unlockMode === 'any') tryUnlock('');
-    else api.lockFocusPrimary();
+    if (data && data.config && data.config.unlockMode === 'any') {
+      if (Date.now() >= armedAt) tryUnlock('');
+    } else api.lockFocusPrimary();
     return;
   }
   const mode = (data && data.config && data.config.unlockMode) || 'any';
   if (mode === 'any') {
+    if (Date.now() < armedAt) return;
     if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return;
     e.preventDefault();
     tryUnlock('');

@@ -3,6 +3,13 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.7.1] — 2026-11-26
+
+### Fixed
+- **Lockscreen closing immediately on click:** added a 500ms arming grace period so the click that opens the lockscreen never immediately dismisses it in *Any key / click* mode.
+- **HavenBar becoming unresponsive after locking:** removed Windows kiosk/fullscreen mode from the lockscreen window (using a frameless `screen-saver`-level overlay instead) and restore HavenBar's topmost state on unlock.
+- **In-app update button:** cleanly closes all hidden windows, stops background helpers and the tray icon before launching the installer so **Restart to update** works reliably.
+
 ## [1.7.0] — 2026-11-26
 
 ### Added

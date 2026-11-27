@@ -1,7 +1,7 @@
 // Updates from the GitHub releases (calebwilsonit-tech/WidgetHaven).
 // The installed version downloads new releases in the background and installs them on restart (or when
 // you quit). The portable version can't replace itself, so it just tells you a new version is out.
-const { app, ipcMain, Notification, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, shell } = require('electron');
 
 const RELEASES = 'https://github.com/calebwilsonit-tech/WidgetHaven/releases/latest';
 
@@ -46,7 +46,12 @@ function setup({ store, save, makeLogo, onState, beforeInstall, log }) {
   function install() {
     if (state.status !== 'ready') return;
     beforeInstall && beforeInstall();
-    setImmediate(() => autoUpdater.quitAndInstall(true, true)); // silent install, then reopen Haven
+    app.removeAllListeners('window-all-closed');
+    for (const w of BrowserWindow.getAllWindows()) {
+      try { w.removeAllListeners('close'); w.destroy(); } catch {}
+    }
+    // Give background helpers (e.g. sysinfo.ps1) a moment to exit so NSIS can replace files cleanly.
+    setTimeout(() => autoUpdater.quitAndInstall(false, true), 180);
   }
 
   // First check shortly after start (so it doesn't slow startup), then every 6 hours.

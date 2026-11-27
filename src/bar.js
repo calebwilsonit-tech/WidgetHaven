@@ -700,8 +700,18 @@ function setup(d) {
     if (changed.includes('scaleFactor') || changed.includes('bounds')) setTimeout(start, 600);
   });
 
+  function restoreTop() {
+    if (!cfg().enabled) return;
+    for (const w of wins.values()) {
+      if (w.isDestroyed()) continue;
+      if (!w.isVisible()) w.showInactive();
+      w.setAlwaysOnTop(true, 'pop-up-menu');
+      if (w.__want) desktop.holdRect(w, w.__want);
+    }
+  }
+
   const mediaControl = (cmd) => tell('media ' + (['toggle', 'next', 'prev'].includes(cmd) ? cmd : 'toggle'));
-  return { start, stop, set, refresh, cfg, status, DEFAULTS, MODULES, wins, statePayload, relDesktop, switchDesktop, vdMove, vdClean, vdHome, mediaControl };
+  return { start, stop, set, refresh, cfg, status, DEFAULTS, MODULES, wins, statePayload, relDesktop, switchDesktop, vdMove, vdClean, vdHome, mediaControl, restoreTop };
 }
 
 module.exports = { setup, DEFAULTS, MODULES };
