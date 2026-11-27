@@ -3,6 +3,11 @@
 All notable changes to Haven. Versions follow [Semantic Versioning](https://semver.org):
 **major** = breaking changes, **minor** = new features, **patch** = fixes.
 
+## [1.7.2] — 2026-11-27
+
+### Fixed
+- HavenBar could come back cut off after a full-screen game that changes the screen resolution. It now waits for the resolution to settle before rebuilding, refits itself when it reappears after a full-screen app, and checks once a second that its window is the right size for the screen (fixing it if not).
+
 ## [1.7.1] — 2026-11-26
 
 ### Fixed

@@ -232,6 +232,20 @@ function setup(d) {
       w.setBounds({ x: b.x, y: c.position === 'bottom' ? b.y + b.height - t : b.y, width: b.width, height: t });
     }
   }
+  // Put a bar back to the right size and position for its screen as it is now, and re-send its layout.
+  function refit(w) {
+    if (!w || w.isDestroyed()) return;
+    w.__refitAt = Date.now();
+    reserve(w);
+    sendConfig(w);
+    // After a resolution change the page can stay drawn at the old size even when the window is right;
+    // a one-pixel nudge makes it redraw at the real size.
+    const r = w.__want;
+    if (r && r.height > 2) {
+      desktop.holdRect(w, { ...r, height: r.height - 1 });
+      setTimeout(() => { if (!w.isDestroyed() && w.__want) desktop.holdRect(w, w.__want); }, 60);
+    }
+  }
   function destroyAll() {
     for (const w of wins.values()) if (!w.isDestroyed()) { desktop.appbarRemove(w); w.destroy(); }
     wins.clear();
@@ -253,7 +267,17 @@ function setup(d) {
         (sameMon && (fg.coversMonitor || fsApp)) || // full screen on this bar's monitor (games at any resolution too)
         (!!fg.rect && fg.rect.x <= p.x && fg.rect.y <= p.y && fg.rect.x + fg.rect.width >= p.x + p.width && fg.rect.y + fg.rect.height >= p.y + p.height));
       if (covered && w.isVisible()) w.hide();
-      else if (!covered && !w.isVisible()) { w.showInactive(); w.setAlwaysOnTop(true, 'pop-up-menu'); }
+      else if (!covered && !w.isVisible()) {
+        w.showInactive(); w.setAlwaysOnTop(true, 'pop-up-menu');
+        // A game may have changed the resolution while the bar was hidden: fit it to the screen again.
+        setTimeout(() => refit(w), 400);
+      } else if (!covered) {
+        // Self-check: if the bar's window isn't the size it should be (left over from a resolution change), refit it.
+        const pr = desktop.physRect(w), th = Math.round(thicknessDip(cfg()) * disp.scaleFactor);
+        const off = pr && (Math.abs(pr.width - p.width) > 2 || Math.abs(pr.height - th) > 2);
+        if (!off) w.__refits = 0;
+        else if ((w.__refits || 0) < 3 && Date.now() - (w.__refitAt || 0) > 3000) { w.__refits = (w.__refits || 0) + 1; refit(w); } // at most 3 tries, so it can never flicker forever
+      }
     }
   }
 
@@ -695,9 +719,13 @@ function setup(d) {
 
   screen.on('display-added', () => cfg().enabled && setTimeout(start, 600));
   screen.on('display-removed', () => cfg().enabled && setTimeout(start, 600));
+  // Games switch resolution in several steps; wait until it settles, rebuild once, then double-check the fit.
+  let metricsT = null;
   screen.on('display-metrics-changed', (_, disp, changed) => {
     if (!cfg().enabled) return;
-    if (changed.includes('scaleFactor') || changed.includes('bounds')) setTimeout(start, 600);
+    if (!changed.includes('scaleFactor') && !changed.includes('bounds')) return;
+    clearTimeout(metricsT);
+    metricsT = setTimeout(() => { start(); setTimeout(() => { for (const w of wins.values()) refit(w); }, 2000); }, 800);
   });
 
   function restoreTop() {

@@ -509,6 +509,6 @@ function broadcastThemeChange() {
 module.exports = {
   keyCombo, focusWindow, minimizeWindow, closeWindow, lockWorkstation, foregroundHwnd, setToolWindow,
   appbarSet, appbarRemove, appbarRemoveAll, appbarRemoveHandle, holdRect, taskbarAutoHide, showTaskbars, setWallpaperFile, currentWallpaperPath, broadcastThemeChange,
-  pin, sendToBottom, allowForeground, keyDown, moveTo, realBounds, placeNative, setCorners, watchWallpaper, readWallpaper, available: () => !!user32,
+  pin, sendToBottom, allowForeground, keyDown, moveTo, realBounds, physRect: (w) => (user32 ? physRect(w) : null), placeNative, setCorners, watchWallpaper, readWallpaper, available: () => !!user32,
   attachToWallpaper, refreshWallpaper, foregroundState, menuOpen, monitorOf, fullscreenAppRunning, isWindowAlive, hwndOf, wallpaperFile,
 };
